@@ -1,2 +1,2 @@
-rootProject.name = "ApiVault"
-include(":apivault")
+rootProject.name = "IPAFetch"
+include(":ipafetch")
