@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.ipafetch.app.crypto.CryptoManager
 import com.ipafetch.app.domain.Category
 import com.ipafetch.app.domain.KeyEntry
 import com.ipafetch.app.ui.theme.ApiVaultTheme
@@ -116,6 +117,15 @@ fun AddEditScreen(
 
                 OutlinedButton(
                     onClick = {
+                        secret = CryptoManager.generateToken()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Generate token")
+                }
+
+                OutlinedButton(
+                    onClick = {
                         expiresAt = Instant.now().plus(90, ChronoUnit.DAYS).toEpochMilli()
                     },
                     modifier = Modifier.fillMaxWidth()
@@ -123,24 +133,24 @@ fun AddEditScreen(
                     Text("Set expiry (90 days)")
                 }
 
-Button(
-                            onClick = {
-                                if (name.isBlank() || service.isBlank()) {
-                                    Toast.makeText(context, "Name and service required", Toast.LENGTH_SHORT).show()
-                                    return@Button
-                                }
-                                if (existing == null && secret.isBlank()) {
-                                    Toast.makeText(context, "Enter a key value", Toast.LENGTH_SHORT).show()
-                                    return@Button
-                                }
-                                val entry = (existing ?: KeyEntry()).copy(
-                                    name = name, service = service, category = category,
-                                    username = username, endpoint = endpoint, notes = notes,
-                                    expiresAt = expiresAt,
-                                    updatedAt = System.currentTimeMillis()
-                                )
-                                onSave(entry, secret)
-                            },
+                Button(
+                    onClick = {
+                        if (name.isBlank() || service.isBlank()) {
+                            Toast.makeText(context, "Name and service required", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+                        if (existing == null && secret.isBlank()) {
+                            Toast.makeText(context, "Enter a key value", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+                        val entry = (existing ?: KeyEntry()).copy(
+                            name = name, service = service, category = category,
+                            username = username, endpoint = endpoint, notes = notes,
+                            expiresAt = expiresAt,
+                            updatedAt = System.currentTimeMillis()
+                        )
+                        onSave(entry, secret)
+                    },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Save")

@@ -70,6 +70,10 @@ security-crypto = { group = "androidx.security", name = "security-crypto", versi
 # Serialization
 kotlinx-serialization = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
 
+# Test
+kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test", version = "1.9.24" }
+kotlin-test-junit = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit", version = "1.9.24" }
+
 # WorkManager
 work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
 

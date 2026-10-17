@@ -1,12 +1,12 @@
 package com.ipafetch.app.crypto
 
-import android.util.Base64
 import com.ipafetch.app.domain.KeyEntry
 import com.ipafetch.app.data.SecurePrefs
 import com.ipafetch.app.security.AuditLogger
 import com.ipafetch.app.crypto.CryptoManager
 import kotlinx.serialization.json.Json
 import java.nio.charset.StandardCharsets
+import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
@@ -65,7 +65,6 @@ object ExportManager {
     )
 
     fun export(
-        context: android.content.Context,
         entries: List<KeyEntry>,
         exportPassphrase: CharArray,
         decrypt: (KeyEntry) -> String
@@ -95,24 +94,22 @@ object ExportManager {
         val ciphertext = cipher.doFinal(plaintext)
 
         val payload = ExportPayload(
-            salt = Base64.encodeToString(salt, Base64.NO_WRAP),
-            iv = Base64.encodeToString(iv, Base64.NO_WRAP),
-            data = Base64.encodeToString(ciphertext, Base64.NO_WRAP)
+            salt = Base64.getEncoder().encodeToString(salt),
+            iv = Base64.getEncoder().encodeToString(iv),
+            data = Base64.getEncoder().encodeToString(ciphertext)
         )
-        AuditLogger.log(context, AuditLogger.EVENT_EXPORT, "${entries.size} entries")
         return json.encodeToString(ExportPayload.serializer(), payload)
     }
 
     fun import(
-        context: android.content.Context,
         blob: String,
         exportPassphrase: CharArray,
         encrypt: (String) -> String
     ): List<KeyEntry> {
         val payload = json.decodeFromString<ExportPayload>(blob)
-        val salt = Base64.decode(payload.salt, Base64.NO_WRAP)
-        val iv = Base64.decode(payload.iv, Base64.NO_WRAP)
-        val ciphertext = Base64.decode(payload.data, Base64.NO_WRAP)
+        val salt = Base64.getDecoder().decode(payload.salt)
+        val iv = Base64.getDecoder().decode(payload.iv)
+        val ciphertext = Base64.getDecoder().decode(payload.data)
         val key = CryptoManager.deriveMasterKey(
             exportPassphrase, salt,
             iterations = ARGON2_ITERATIONS,
@@ -126,7 +123,6 @@ object ExportManager {
         val records = json.decodeFromString<List<EntryRecord>>(
             String(plaintext, StandardCharsets.UTF_8)
         )
-        AuditLogger.log(context, AuditLogger.EVENT_IMPORT, "${records.size} entries")
         return records.map { r ->
             KeyEntry(
                 name = r.name, service = r.service, category = r.category,

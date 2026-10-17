@@ -1,9 +1,9 @@
 package com.ipafetch.app.crypto
 
-import android.util.Base64
 import com.lmax.argon2.Argon2
 import com.lmax.argon2.Argon2Parameters
 import java.security.SecureRandom
+import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
@@ -72,7 +72,7 @@ object CryptoManager {
         cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(masterKey, "AES"), GCMParameterSpec(GCM_TAG_LENGTH, iv))
         val ciphertext = cipher.doFinal(plaintext.toByteArray(charset("UTF-8")))
         val blob = salt + iv + ciphertext
-        return Base64.encodeToString(blob, Base64.NO_WRAP)
+        return Base64.getEncoder().encodeToString(blob)
     }
 
     /**
@@ -80,7 +80,7 @@ object CryptoManager {
      * Expects base64(salt + iv + ciphertext+tag).
      */
     fun decrypt(blobB64: String, masterKey: ByteArray): String {
-        val blob = Base64.decode(blobB64, Base64.NO_WRAP)
+        val blob = Base64.getDecoder().decode(blobB64)
         val iv = blob.copyOfRange(ARGON2_SALT_LENGTH, ARGON2_SALT_LENGTH + GCM_IV_LENGTH)
         val ciphertext = blob.copyOfRange(ARGON2_SALT_LENGTH + GCM_IV_LENGTH, blob.size)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
