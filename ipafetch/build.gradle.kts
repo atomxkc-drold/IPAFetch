@@ -1,13 +1,5 @@
 import org.gradle.api.JavaVersion
 
-pluginManagement {
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
