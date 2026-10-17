@@ -5,12 +5,12 @@
     <application
         android:name=".ApiVaultApp"
         android:allowBackup="false"
-        android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.ApiVault"
+        tools:replace="android:allowBackup"
         tools:targetApi="34">
         <activity
             android:name=".ui.MainActivity"
