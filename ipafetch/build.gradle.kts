@@ -8,6 +8,11 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+repositories {
+    google()
+    mavenCentral()
+}
+
 android {
     namespace = "com.ipafetch.app"
     compileSdk = 34
