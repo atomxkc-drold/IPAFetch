@@ -10,9 +10,6 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
       - uses: android-actions/setup-android@v3
-        with:
-          api-level: 36
-          ndk-version: r27c
       - name: Build
         run: cd ipafetch && chmod +x ./gradlew && ./gradlew assembleDebug --no-daemon
       - name: Upload APK
