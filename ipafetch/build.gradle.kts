@@ -1,11 +1,15 @@
 import org.gradle.api.JavaVersion
 
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.hilt.android)
-    alias(libs.plugins.ksp)
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.serialization")
+    id("org.jetbrains.kotlin.kapt")
+}
+
+repositories {
+    google()
+    mavenCentral()
 }
 
 android {
@@ -66,20 +70,15 @@ dependencies {
     implementation(libs.compose.activity)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.lifecycle.viewmodel.compose)
-    implementation(libs.compose.hilt.navigation)
 
     // Lifecycle
     implementation(libs.lifecycle.runtime.ktx)
     implementation(libs.lifecycle.viewmodel.ktx)
 
-    // Hilt
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler)
-
-    // Room
+        // Room
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
-    ksp(libs.room.compiler)
+    kapt(libs.room.compiler)
 
     // SQLCipher
     implementation(libs.net.sqlcipher)
@@ -88,8 +87,6 @@ dependencies {
     implementation(libs.tink.android)
 
     // Argon2id KDF
-    implementation(libs.argon2)
-
     // Biometric
     implementation(libs.biometric)
 
@@ -101,16 +98,10 @@ dependencies {
 
     // WorkManager
     implementation(libs.work.runtime.ktx)
-    implementation(libs.compose.hilt.work)
-
-    // Coil
-    implementation(libs.coil.compose)
 
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso)
-    androidTestImplementation(platform(libs.compose.bom))
-    androidTestImplementation(libs.compose.ui.test)
 }

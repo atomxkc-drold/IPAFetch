@@ -32,10 +32,6 @@ object ExportManager {
 
     private const val GCM_IV_LENGTH = 12
     private const val AES_KEY_LENGTH = 32
-    private const val ARGON2_ITERATIONS = 3
-    private const val ARGON2_MEMORY_KB = 131072   // 128 MiB
-    private const val ARGON2_PARALLELISM = 4
-    private const val ARGON2_HASH_LENGTH = 32
 
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = false }
 
@@ -71,13 +67,7 @@ object ExportManager {
     ): String {
         val salt = Random.nextBytes(16)
         val iv = Random.nextBytes(GCM_IV_LENGTH)
-        val key = CryptoManager.deriveMasterKey(
-            exportPassphrase, salt,
-            iterations = ARGON2_ITERATIONS,
-            memoryKb = ARGON2_MEMORY_KB,
-            parallelism = ARGON2_PARALLELISM,
-            hashLength = ARGON2_HASH_LENGTH
-        )
+        val key = CryptoManager.deriveMasterKey(exportPassphrase, salt)
         val records = entries.map { e ->
             EntryRecord(
                 name = e.name, service = e.service, category = e.category,
@@ -110,13 +100,7 @@ object ExportManager {
         val salt = Base64.getDecoder().decode(payload.salt)
         val iv = Base64.getDecoder().decode(payload.iv)
         val ciphertext = Base64.getDecoder().decode(payload.data)
-        val key = CryptoManager.deriveMasterKey(
-            exportPassphrase, salt,
-            iterations = ARGON2_ITERATIONS,
-            memoryKb = ARGON2_MEMORY_KB,
-            parallelism = ARGON2_PARALLELISM,
-            hashLength = ARGON2_HASH_LENGTH
-        )
+        val key = CryptoManager.deriveMasterKey(exportPassphrase, salt)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(128, iv))
         val plaintext = cipher.doFinal(ciphertext)

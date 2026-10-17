@@ -17,19 +17,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewModels
+import com.ipafetch.app.data.AppDatabase
+import com.ipafetch.app.data.SecurePrefs
 import com.ipafetch.app.ui.biometric.BiometricGate
 import com.ipafetch.app.ui.theme.ApiVaultTheme
 import com.ipafetch.app.ui.viewmodels.MainViewModel
-import dagger.hilt.android.AndroidEntryPoint
 import android.view.Window
 
-private sealed class NavScreen {
-    object Export : NavScreen()
-    object Import : NavScreen()
-}
-
-@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private var gate: BiometricGate? = null
@@ -37,7 +31,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val viewModel by viewModels<MainViewModel>()
+        val viewModel = MainViewModel(application, AppDatabase.getInstance(application))
 
         fun promptBiometric() {
             gate?.shutdown()
@@ -51,13 +45,12 @@ class MainActivity : ComponentActivity() {
         }
 
         fun startAddEdit(entryId: Long = 0L) {
-            // Session already unlocked; just navigate. No re-auth needed.
             startActivity(Intent(this, AddEditActivity::class.java).apply {
                 if (entryId != 0L) putExtra("entry_id", entryId)
             })
         }
 
-        if (viewModel.isSetupDone()) {
+        if (SecurePrefs.isSetupDone(application)) {
             viewModel.requestUnlock()
         }
 
@@ -66,7 +59,6 @@ class MainActivity : ComponentActivity() {
                 val state by viewModel.state.collectAsStateWithLifecycle()
                 var navScreen by remember { mutableStateOf<NavScreen?>(null) }
 
-                // Prompt once on first render when locked.
                 LaunchedEffect(state) {
                     if (state is MainViewModel.State.Locked) promptBiometric()
                 }
