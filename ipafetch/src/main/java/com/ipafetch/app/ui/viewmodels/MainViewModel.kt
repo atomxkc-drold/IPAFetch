@@ -3,24 +3,19 @@ package com.ipafetch.app.ui.viewmodels
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import com.ipafetch.app.Session
-import com.ipafetch.app.data.AppDatabase
+import com.ipafetch.app.crypto.CryptoManager
+import com.ipafetch.app.crypto.KeyStoreManager
 import com.ipafetch.app.data.KeyRepository
 import com.ipafetch.app.data.SecurePrefs
-import com.ipafetch.app.crypto.CryptoManager
-import com.ipafetch.app.crypto.ExportManager
-import com.ipafetch.app.crypto.KeyStoreManager
+import com.ipafetch.app.data.VaultStore
 import com.ipafetch.app.domain.KeyEntry
 import com.ipafetch.app.security.AuditLogger
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-@HiltViewModel
-class MainViewModel @Inject constructor(
-    private val app: Application,
-    private val db: AppDatabase
+class MainViewModel @constructor(
+    private val app: Application
 ) : AndroidViewModel(app) {
 
     private val _state = MutableStateFlow<State>(State.Locked)
@@ -35,11 +30,6 @@ class MainViewModel @Inject constructor(
 
     fun isSetupDone(): Boolean = SecurePrefs.isSetupDone(app)
 
-    /** Set state to Locked so the biometric gate prompts. */
-    fun requestUnlock() {
-        _state.value = State.Locked
-    }
-
     fun setupMasterKey(password: CharArray) {
         val salt = CryptoManager.generateSalt()
         val derived = CryptoManager.deriveMasterKey(password, salt)
@@ -47,14 +37,12 @@ class MainViewModel @Inject constructor(
         SecurePrefs.saveSalt(app, salt)
         SecurePrefs.saveWrappedMasterKey(app, wrapped)
         SecurePrefs.markSetupDone(app, true)
-        val repo = KeyRepository(db, derived)
-        Session.set(derived, repo)
+        Session.set(derived, KeyRepository(app, derived))
         _state.value = State.Unlocked
     }
 
     fun onMasterKeyReady(key: ByteArray) {
-        val repo = KeyRepository(db, key)
-        Session.set(key, repo)
+        Session.set(key, KeyRepository(app, key))
         _state.value = State.Unlocked
     }
 
@@ -72,22 +60,5 @@ class MainViewModel @Inject constructor(
         Session.clear()
         _state.value = State.Setup
         AuditLogger.log(app, AuditLogger.EVENT_RESET)
-    }
-
-    /** Export all entries as an encrypted JSON blob using the given passphrase. */
-    suspend fun exportAll(exportPassphrase: CharArray): String {
-        val repo = Session.repository ?: throw IllegalStateException("Vault not unlocked")
-        val entries = repo.getAll().first()
-        return ExportManager.export(entries, exportPassphrase) { repo.decryptValue(it.encryptedValue) }
-    }
-
-    /** Import entries from an encrypted JSON blob using the given passphrase. */
-    suspend fun importAll(blob: String, exportPassphrase: CharArray) {
-        val repo = Session.repository ?: throw IllegalStateException("Vault not unlocked")
-        val imported = ExportManager.import(blob, exportPassphrase) { repo.encryptValue(it) }
-        for (entry in imported) {
-            repo.upsert(entry)
-        }
-        AuditLogger.log(app, AuditLogger.EVENT_IMPORT, "${imported.size} entries")
     }
 }

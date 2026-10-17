@@ -2,7 +2,6 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.serialization")
-    id("org.jetbrains.kotlin.kapt")
 }
 
 repositories {
@@ -73,13 +72,11 @@ dependencies {
     implementation(libs.lifecycle.runtime.ktx)
     implementation(libs.lifecycle.viewmodel.ktx)
 
-    // Room
-    implementation(libs.room.runtime)
-    implementation(libs.room.ktx)
-    kapt(libs.room.compiler)
-
     // Biometric
     implementation(libs.biometric)
+
+    // EncryptedSharedPreferences / MasterKeys
+    implementation(libs.security.crypto)
 
     // Serialization
     implementation(libs.kotlinx.serialization)

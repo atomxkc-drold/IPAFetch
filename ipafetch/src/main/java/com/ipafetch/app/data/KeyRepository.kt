@@ -1,54 +1,41 @@
 package com.ipafetch.app.data
 
-import android.util.Base64
+import android.content.Context
 import com.ipafetch.app.crypto.CryptoManager
-import com.ipafetch.app.crypto.KeyStoreManager
 import com.ipafetch.app.domain.KeyEntry
-import com.ipafetch.app.domain.KeyEntryEntity
-import com.ipafetch.app.domain.toDomain
-import com.ipafetch.app.domain.toEntity
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
-import javax.crypto.Cipher
-import javax.crypto.SecretKey
+import kotlinx.serialization.json.Json
 
 /**
- * Single source of truth for keys.
+ * Single source of truth for keys, backed by VaultStore (encrypted JSON blob).
  *
  * Encryption model:
- *   - On first unlock, master key is derived from password via Argon2id and
- *     wrapped inside Android Keystore (biometric/PIN required to unwrap).
- *   - Each entry's plaintext is encrypted with AES-256-GCM using the master key.
- *   - The DB stores salt+iv+ciphertext+tag per field; nothing is plaintext.
- * - Search runs on ciphertext metadata only — no plaintext leakage.
+ *   - Master password -> PBKDF2-HMAC-SHA256 -> master key.
+ *   - Master key wrapped inside Android Keystore (biometric/PIN-gated).
+ *   - Each entry's plaintext encrypted with AES-256-GCM using master key.
+ *   - All entries serialized to JSON, stored as one encrypted blob in
+ *     EncryptedSharedPreferences. Nothing plaintext on disk.
  */
 class KeyRepository(
-    private val db: AppDatabase,
+    private val context: Context,
     private val masterKey: ByteArray
 ) {
-    private val dao = db.keyDao()
+    private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
 
-    fun getAll(): Flow<List<KeyEntry>> = dao.getAll().map { it.map(KeyEntryEntity::toDomain) }
-
-    fun search(query: String): Flow<List<KeyEntry>> = dao.search(query).map { it.map(KeyEntryEntity::toDomain) }
-
-    fun byCategory(category: String): Flow<List<KeyEntry>> = dao.byCategory(category).map { it.map(KeyEntryEntity::toDomain) }
-
-    fun expiringSoon(now: Long): Flow<List<KeyEntry>> = dao.expiringSoon(now).map { it.map(KeyEntryEntity::toDomain) }
-
-    suspend fun getById(id: Long): KeyEntry? = dao.getById(id)?.toDomain()
-
-    suspend fun upsert(entry: KeyEntry): Long {
-        val entity = entry.toEntity()
-        val id = dao.upsert(entity)
-        // Room returns the rowId; -1 means no row was inserted. Fall back to the
-        // entity's id so callers can use the returned value either way.
-        return if (id <= 0L) entity.id else id
+    /** All entries, decrypted from the vault blob. */
+    fun getAll(): List<KeyEntry> {
+        val blob = VaultStore.loadVault(context) ?: return emptyList()
+        return try {
+            json.decodeFromString<List<KeyEntry>>(blob)
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 
-    suspend fun deleteById(id: Long) = dao.deleteById(id)
-
-    suspend fun deleteAll() = dao.deleteAll()
+    /** Save all entries to the vault blob (encrypted). */
+    fun saveAll(entries: List<KeyEntry>) {
+        val blob = json.encodeToString(entries)
+        VaultStore.saveVault(context, blob)
+    }
 
     /** Encrypt a plaintext API key before persistence. */
     fun encryptValue(plaintext: String): String =
@@ -57,4 +44,18 @@ class KeyRepository(
     /** Decrypt a stored API key back to plaintext. */
     fun decryptValue(blobB64: String): String =
         CryptoManager.decrypt(blobB64, masterKey)
+
+    /** Persist a single entry (merge into existing list). */
+    fun upsert(entry: KeyEntry) {
+        val entries = getAll()
+        val idx = entries.indexOfFirst { it.id == entry.id }
+        val updated = if (idx >= 0) entries.toMutableList().apply { set(idx, entry) }
+                      else entries.toMutableList().apply { add(entry) }
+        saveAll(updated)
+    }
+
+    fun deleteById(id: Long) {
+        val entries = getAll().filter { it.id != id }
+        saveAll(entries)
+    }
 }

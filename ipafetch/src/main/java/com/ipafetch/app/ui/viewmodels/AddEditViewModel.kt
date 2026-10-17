@@ -1,9 +1,7 @@
 package com.ipafetch.app.ui.viewmodels
 
 import android.app.Application
-import androidx.lifecycle.AndroidViewModel
 import com.ipafetch.app.Session
-import com.ipafetch.app.data.AppDatabase
 import com.ipafetch.app.domain.KeyEntry
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,9 +9,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class AddEditViewModel @constructor(
-    private val app: Application,
-    private val db: AppDatabase
-) : AndroidViewModel(app) {
+    private val app: Application
+) : androidx.lifecycle.AndroidViewModel(app) {
 
     private val _entry = MutableStateFlow<KeyEntry?>(null)
     val entry: StateFlow<KeyEntry?> = _entry.asStateFlow()

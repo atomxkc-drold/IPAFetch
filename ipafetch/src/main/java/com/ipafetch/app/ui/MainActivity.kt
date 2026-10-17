@@ -17,7 +17,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.ipafetch.app.data.AppDatabase
 import com.ipafetch.app.data.SecurePrefs
 import com.ipafetch.app.ui.biometric.BiometricGate
 import com.ipafetch.app.ui.theme.ApiVaultTheme
@@ -31,7 +30,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val viewModel = MainViewModel(application, AppDatabase.getInstance(application))
+        val viewModel = MainViewModel(application)
 
         fun promptBiometric() {
             gate?.shutdown()

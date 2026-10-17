@@ -6,7 +6,6 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.ipafetch.app.data.AppDatabase
 import com.ipafetch.app.ui.theme.ApiVaultTheme
 import com.ipafetch.app.ui.viewmodels.AddEditViewModel
 
@@ -15,7 +14,7 @@ class AddEditActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val entryId = intent.getLongExtra("entry_id", 0L)
-        val viewModel = AddEditViewModel(application, AppDatabase.getInstance(application))
+        val viewModel = AddEditViewModel(application)
 
         setContent {
             ApiVaultTheme {
