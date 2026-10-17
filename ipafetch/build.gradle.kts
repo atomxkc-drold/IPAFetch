@@ -1,8 +1,11 @@
 import org.gradle.api.JavaVersion
 
-repositories {
-    google()
-    mavenCentral()
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
 }
 
 plugins {
