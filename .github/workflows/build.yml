@@ -9,9 +9,15 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-      - uses: android-actions/setup-android@v3
       - name: Build
-        run: cd ipafetch && chmod +x ./gradlew && ./gradlew assembleDebug --no-daemon
+        run: |
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+          cd ipafetch
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+          JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
