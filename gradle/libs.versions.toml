@@ -1,5 +1,5 @@
 [versions]
-android = "34.2.1"
+android = "8.5.2"
 kotlin = "1.9.24"
 hilt = "2.51"
 compose-bom = "2024.05.00"
