@@ -1,10 +1,7 @@
-import org.gradle.api.JavaVersion
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.serialization")
-    id("org.jetbrains.kotlin.kapt")
 }
 
 repositories {
@@ -75,33 +72,18 @@ dependencies {
     implementation(libs.lifecycle.runtime.ktx)
     implementation(libs.lifecycle.viewmodel.ktx)
 
-        // Room
+    // Room
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     kapt(libs.room.compiler)
 
-    // SQLCipher
-    implementation(libs.net.sqlcipher)
-
-    // Tink
-    implementation(libs.tink.android)
-
-    // Argon2id KDF
     // Biometric
     implementation(libs.biometric)
-
-    // EncryptedSharedPreferences / MasterKeys
-    implementation(libs.security.crypto)
 
     // Serialization
     implementation(libs.kotlinx.serialization)
 
-    // WorkManager
-    implementation(libs.work.runtime.ktx)
-
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso)
 }

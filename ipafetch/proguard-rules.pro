@@ -4,12 +4,6 @@
     public static final java.lang.Class[] a();
 }
 
-# Keep Tink keyset serialization
--keep class com.google.crypto.tink.** { *; }
-
-# Keep SQLCipher
--keep class net.sqlcipher.** { *; }
-
 # Keep Room metadata
 -keep class * extends androidx.room.RoomDatabase
 -keep @androidx.room.Entity class *
