@@ -3,7 +3,6 @@ package com.ipafetch.app.ui
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,6 +13,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Spacer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -23,21 +25,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import com.ipafetch.app.domain.KeyEntry
-import com.ipafetch.app.security.ClipboardGuard
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import com.ipafetch.app.ui.theme.ApiVaultTheme
 import com.ipafetch.app.ui.viewmodels.MainViewModel
-import androidx.compose.material3.icons.filled.ContentCopy
-import androidx.compose.material3.icons.filled.FileDownload
+import androidx.compose.material3.icons.filled.ArrowBack
 
 @Composable
 fun ExportScreen(
@@ -62,7 +60,7 @@ fun ExportScreen(
                 title = { Text("Export") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(imageVector = androidx.compose.material3.icons.filled.ArrowBack, contentDescription = "Back")
+                        Icon(imageVector = ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.centeredTopAppBarColors(
@@ -73,7 +71,7 @@ fun ExportScreen(
 
             Text("Export passphrase", style = MaterialTheme.typography.labelMedium)
 
-            androidx.compose.material3.OutlinedTextField(
+            OutlinedTextField(
                 value = passphrase,
                 onValueChange = { passphrase = it },
                 label = { Text("Passphrase") },
@@ -103,7 +101,7 @@ fun ExportScreen(
             }
 
             exported?.let { blob ->
-                androidx.compose.material3.Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Text("Encrypted backup", style = MaterialTheme.typography.labelMedium)
 
@@ -123,7 +121,7 @@ fun ExportScreen(
                 }
 
                 if (showingEntries) {
-                    androidx.compose.material3.Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     LazyColumn(
                         modifier = Modifier.fillMaxWidth(),

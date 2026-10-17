@@ -18,7 +18,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModels
-import com.ipafetch.app.R
 import com.ipafetch.app.ui.biometric.BiometricGate
 import com.ipafetch.app.ui.theme.ApiVaultTheme
 import com.ipafetch.app.ui.viewmodels.MainViewModel

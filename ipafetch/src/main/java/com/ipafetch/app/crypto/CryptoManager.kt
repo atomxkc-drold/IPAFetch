@@ -27,7 +27,6 @@ object CryptoManager {
     private const val ARGON2_SALT_LENGTH = 16
 
     // AES-256-GCM
-    private const val AES_KEY_LENGTH = 32
     private const val GCM_IV_LENGTH = 12          // bytes
     private const val GCM_TAG_LENGTH = 128        // bits
 
@@ -88,10 +87,6 @@ object CryptoManager {
         val plaintext = cipher.doFinal(ciphertext)
         return String(plaintext, charset("UTF-8"))
     }
-
-    /** Wrap a raw 32-byte master key for storage inside Android Keystore. */
-    fun wrapKeyForKeystore(masterKey: ByteArray): SecretKeySpec =
-        SecretKeySpec(masterKey, 0, AES_KEY_LENGTH, "AES")
 
     /** Generate a random API token. */
     fun generateToken(length: Int = 40, prefix: String = ""): String {

@@ -35,7 +35,6 @@ import com.ipafetch.app.crypto.ExportManager
 import com.ipafetch.app.ui.theme.ApiVaultTheme
 import com.ipafetch.app.ui.viewmodels.MainViewModel
 import androidx.compose.material3.icons.filled.ArrowBack
-import androidx.compose.material3.icons.filled.FileUpload
 import kotlinx.coroutines.launch
 
 @Composable

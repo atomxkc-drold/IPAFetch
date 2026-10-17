@@ -39,7 +39,9 @@ class AddEditViewModel @Inject constructor(
     fun save(entry: KeyEntry, plaintextSecret: String?) {
         val repo = Session.repository ?: return
         viewModelScope.launch {
-            val valueToStore = if (entry.encryptedValue.isBlank() && plaintextSecret != null) {
+            // Encrypt when there's a new/changed secret; otherwise keep the
+            // existing ciphertext (edits that don't touch the secret field).
+            val valueToStore = if (plaintextSecret?.isNotBlank() == true) {
                 repo.encrypt(plaintextSecret)
             } else {
                 entry.encryptedValue

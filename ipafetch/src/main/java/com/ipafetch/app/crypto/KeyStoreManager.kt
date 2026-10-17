@@ -2,8 +2,8 @@ package com.ipafetch.app.crypto
 
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
-import android.util.Base64
 import java.security.KeyStore
+import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
@@ -65,7 +65,7 @@ object KeyStoreManager {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, keystoreKey, GCMParameterSpec(GCM_TAG_LENGTH, iv))
         val ciphertext = cipher.doFinal(masterKey)
-        return Base64.encodeToString(iv + ciphertext, Base64.NO_WRAP)
+        return Base64.getEncoder().encodeToString(iv + ciphertext)
     }
 
     /**
@@ -78,7 +78,7 @@ object KeyStoreManager {
      */
     fun unwrapMasterKey(authenticatedCipher: Cipher, wrappedB64: String): ByteArray? {
         return try {
-            val blob = Base64.decode(wrappedB64, Base64.NO_WRAP)
+            val blob = Base64.getDecoder().decode(wrappedB64)
             val ciphertext = blob.copyOfRange(GCM_IV_LENGTH, blob.size)
             authenticatedCipher.doFinal(ciphertext)
         } catch (e: Exception) {
@@ -92,6 +92,6 @@ object KeyStoreManager {
         if (ks.containsAlias(KEY_ALIAS)) ks.deleteEntry(KEY_ALIAS)
     }
 
-    fun toB64(data: ByteArray): String = Base64.encodeToString(data, Base64.NO_WRAP)
-    fun fromB64(b64: String): ByteArray = Base64.decode(b64, Base64.NO_WRAP)
+    fun toB64(data: ByteArray): String = Base64.getEncoder().encodeToString(data)
+    fun fromB64(b64: String): ByteArray = Base64.getDecoder().decode(b64)
 }
