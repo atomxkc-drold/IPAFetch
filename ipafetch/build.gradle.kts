@@ -111,6 +111,4 @@ dependencies {
     testImplementation(libs.kotlin.test)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso)
-    androidTestImplementation(platform(libs.compose.bom))
-    androidTestImplementation(libs.composeUiTest)
 }
