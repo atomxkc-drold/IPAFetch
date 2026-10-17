@@ -1,63 +1,45 @@
 package com.ipafetch.app.crypto
 
-import com.lmax.argon2.Argon2
-import com.lmax.argon2.Argon2Parameters
 import java.security.SecureRandom
 import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
+import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 import kotlin.random.Random
 
 /**
  * Privacy core of ApiVault.
  *
- * Master password -> Argon2id -> master key -> per-entry AES-256-GCM blobs.
- * Master key never touches disk in plaintext; it is wrapped by Android Keystore.
- * Argon2 parameters are tuned for interactive login (fast enough to type a password,
- * slow enough to defeat GPU cracking).
+ * Master password -> PBKDF2-HMAC-SHA256 (100k iterations) -> master key ->
+ * per-entry AES-256-GCM blobs. Master key never touches disk in plaintext; it
+ * is wrapped by Android Keystore.
  */
 object CryptoManager {
 
-    // Argon2id parameters (OWASP recommended for interactive use)
-    private const val ARGON2_ITERATIONS = 2
-    private const val ARGON2_MEMORY_KB = 65536   // 64 MiB
-    private const val ARGON2_PARALLELISM = 2
-    private const val ARGON2_HASH_LENGTH = 32    // 256-bit key
-    private const val ARGON2_SALT_LENGTH = 16
+    private const val PBKDF2_ITERATIONS = 100_000
+    private const val PBKDF2_KEY_LENGTH = 256
+    private const val PBKDF2_SALT_LENGTH = 16
 
     // AES-256-GCM
     private const val GCM_IV_LENGTH = 12          // bytes
     private const val GCM_TAG_LENGTH = 128        // bits
 
     /**
-     * Derive a 256-bit master key from a password + salt using Argon2id.
+     * Derive a 256-bit master key from a password + salt using PBKDF2-HMAC-SHA256.
      */
     fun deriveMasterKey(
         password: CharArray,
         salt: ByteArray,
-        iterations: Int = ARGON2_ITERATIONS,
-        memoryKb: Int = ARGON2_MEMORY_KB,
-        parallelism: Int = ARGON2_PARALLELISM,
-        hashLength: Int = ARGON2_HASH_LENGTH
+        iterations: Int = PBKDF2_ITERATIONS
     ): ByteArray {
-        val argon2 = Argon2.getInstance()
-        val params = Argon2Parameters.Builder(Argon2Parameters.ARGON2_id)
-            .withMemory(memoryKb)
-            .withIterations(iterations)
-            .withParallelism(parallelism)
-            .withSalt(salt)
-            .withHashLength(hashLength)
-            .build()
-        return try {
-            argon2.hash(params, password)
-        } finally {
-            argon2.close()
-        }
+        val spec = PBEKeySpec(password, salt, iterations, PBKDF2_KEY_LENGTH)
+        val factory = javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+        return try { factory.generateSecret(spec).encoded } finally { factory.close() }
     }
 
     /** Generate a cryptographically random salt for key derivation. */
-    fun generateSalt(): ByteArray = SecureRandom().generateSeed(ARGON2_SALT_LENGTH)
+    fun generateSalt(): ByteArray = SecureRandom().generateSeed(PBKDF2_SALT_LENGTH)
 
     /**
      * Encrypt a plaintext value (e.g. an API key) using AES-256-GCM.
@@ -65,7 +47,7 @@ object CryptoManager {
      * The salt is stored alongside so re-encryption with the same master key works.
      */
     fun encrypt(plaintext: String, masterKey: ByteArray): String {
-        val salt = SecureRandom().generateSeed(ARGON2_SALT_LENGTH)
+        val salt = SecureRandom().generateSeed(PBKDF2_SALT_LENGTH)
         val iv = SecureRandom().generateSeed(GCM_IV_LENGTH)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(masterKey, "AES"), GCMParameterSpec(GCM_TAG_LENGTH, iv))
@@ -80,8 +62,8 @@ object CryptoManager {
      */
     fun decrypt(blobB64: String, masterKey: ByteArray): String {
         val blob = Base64.getDecoder().decode(blobB64)
-        val iv = blob.copyOfRange(ARGON2_SALT_LENGTH, ARGON2_SALT_LENGTH + GCM_IV_LENGTH)
-        val ciphertext = blob.copyOfRange(ARGON2_SALT_LENGTH + GCM_IV_LENGTH, blob.size)
+        val iv = blob.copyOfRange(PBKDF2_SALT_LENGTH, PBKDF2_SALT_LENGTH + GCM_IV_LENGTH)
+        val ciphertext = blob.copyOfRange(PBKDF2_SALT_LENGTH + GCM_IV_LENGTH, blob.size)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(masterKey, "AES"), GCMParameterSpec(GCM_TAG_LENGTH, iv))
         val plaintext = cipher.doFinal(ciphertext)

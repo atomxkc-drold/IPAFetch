@@ -59,8 +59,7 @@ net-sqlcipher = { group = "net.zetetic", name = "sqlcipher-android", version.ref
 # Tink
 tink-android = { group = "com.google.crypto.tink", name = "tink-android", version.ref = "tink" }
 
-# Argon2id (pure JVM, memory-hard KDF for master password)
-argon2 = { group = "com.lmax", name = "argon2-jvm", version = "2.9" }
+
 
 # Biometric
 biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }

@@ -92,8 +92,6 @@ dependencies {
     implementation(libs.tink.android)
 
     // Argon2id KDF
-    implementation(libs.argon2)
-
     // Biometric
     implementation(libs.biometric)
 
