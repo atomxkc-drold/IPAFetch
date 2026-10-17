@@ -35,12 +35,16 @@ import com.ipafetch.app.ui.viewmodels.MainViewModel
 import androidx.compose.material3.icons.Icons
 import androidx.compose.material3.icons.filled.Add
 import androidx.compose.material3.icons.filled.ContentCopy
+import androidx.compose.material3.icons.filled.FileDownload
+import androidx.compose.material3.icons.filled.FileUpload
 
 @Composable
 fun KeyListScreen(
     viewModel: MainViewModel,
     onAdd: () -> Unit,
-    onEdit: (KeyEntry) -> Unit
+    onEdit: (KeyEntry) -> Unit,
+    onExport: () -> Unit = {},
+    onImport: () -> Unit = {}
 ) {
     ApiVaultTheme {
         val context = LocalContext.current
@@ -50,11 +54,19 @@ fun KeyListScreen(
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("ApiVault") },
+                    title = { Text("IPAFetch") },
                     colors = TopAppBarDefaults.centeredTopAppBarColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         titleContentColor = MaterialTheme.colorScheme.onPrimary
                     ),
+                    actions = {
+                        IconButton(onClick = onExport) {
+                            Icon(imageVector = FileDownload, contentDescription = "Export")
+                        }
+                        IconButton(onClick = onImport) {
+                            Icon(imageVector = FileUpload, contentDescription = "Import")
+                        }
+                    },
                     scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
                 )
             },

@@ -25,6 +25,11 @@ import com.ipafetch.app.ui.viewmodels.MainViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import android.view.Window
 
+private sealed class NavScreen {
+    object Export : NavScreen()
+    object Import : NavScreen()
+}
+
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
@@ -60,6 +65,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             ApiVaultTheme {
                 val state by viewModel.state.collectAsStateWithLifecycle()
+                var navScreen by remember { mutableStateOf<NavScreen?>(null) }
 
                 // Prompt once on first render when locked.
                 LaunchedEffect(state) {
@@ -87,11 +93,23 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     is MainViewModel.State.Unlocked -> {
-                        KeyListScreen(
-                            viewModel = viewModel,
-                            onAdd = { startAddEdit(0L) },
-                            onEdit = { startAddEdit(it.id) }
-                        )
+                        when (navScreen) {
+                            null -> KeyListScreen(
+                                viewModel = viewModel,
+                                onAdd = { startAddEdit(0L) },
+                                onEdit = { startAddEdit(it.id) },
+                                onExport = { navScreen = NavScreen.Export },
+                                onImport = { navScreen = NavScreen.Import }
+                            )
+                            is NavScreen.Export -> ExportScreen(
+                                viewModel = viewModel,
+                                onBack = { navScreen = null }
+                            )
+                            is NavScreen.Import -> ImportScreen(
+                                viewModel = viewModel,
+                                onBack = { navScreen = null }
+                            )
+                        }
                     }
                     is MainViewModel.State.Error -> {
                         Scaffold(modifier = Modifier.fillMaxSize()) { _ ->
