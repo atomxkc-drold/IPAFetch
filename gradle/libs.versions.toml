@@ -10,8 +10,8 @@ tink = "1.13.0"
 biometric = "1.2.0-alpha05"
 navigation = "2.7.7"
 serialization = "1.6.3"
-hilt-navigation = "1.2.0"
-hilt-compose = "1.1.0"
+hilt-navigation = "1.0.0"
+hilt-compose = "1.0.0"
 work = "2.9.0"
 coil = "2.6.0"
 security = "1.1.0-alpha06"
@@ -60,7 +60,7 @@ net-sqlcipher = { group = "net.zetetic", name = "sqlcipher-android", version.ref
 tink-android = { group = "com.google.crypto.tink", name = "tink-android", version.ref = "tink" }
 
 # Argon2id (pure JVM, memory-hard KDF for master password)
-argon2 = { group = "com.lmax", name = "argon2-jvm", version = "2.12" }
+argon2 = { group = "com.lmax", name = "argon2-jvm", version = "2.9" }
 
 # Biometric
 biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }

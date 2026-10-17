@@ -71,7 +71,6 @@ dependencies {
     implementation(libs.compose.activity)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.lifecycle.viewmodel.compose)
-    implementation(libs.compose.hilt.navigation)
 
     // Lifecycle
     implementation(libs.lifecycle.runtime.ktx)
@@ -106,10 +105,6 @@ dependencies {
 
     // WorkManager
     implementation(libs.work.runtime.ktx)
-    implementation(libs.compose.hilt.work)
-
-    // Coil
-    implementation(libs.coil.compose)
 
     // Testing
     testImplementation(libs.junit)
