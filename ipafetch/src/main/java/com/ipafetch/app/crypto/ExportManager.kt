@@ -1,120 +1,80 @@
 package com.ipafetch.app.crypto
 
-import com.ipafetch.app.domain.KeyEntry
-import com.ipafetch.app.data.SecurePrefs
-import com.ipafetch.app.security.AuditLogger
-import com.ipafetch.app.crypto.CryptoManager
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import java.nio.charset.StandardCharsets
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import java.security.SecureRandom
 import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
+import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
-import kotlin.random.Random
 
 /**
- * Encrypted JSON export/import, OpenSSL-compatible.
+ * Passphrase-protected export of the whole vault.
  *
- * Format (JSON):
- *   {
- *     "v": 1,
- *     "salt": "<base64>",
- *     "iv": "<base64>",
- *     "data": "<base64 AES-256-GCM ciphertext>"
- *   }
- *
- * The export password is a user-chosen passphrase, NOT the master key. It is
- * run through Argon2id with a random salt stored in the file. This lets users
- * back up to a file without re-entering their master password, and share the
- * password separately (out-of-band).
+ * Envelope: { v, salt, iv, data } where data is AES-256-GCM over the vault JSON
+ * and the key is PBKDF2-HMAC-SHA256(passphrase, salt, 150k). The export
+ * passphrase is independent of the master password so a backup can be shared
+ * out-of-band without revealing either.
  */
 object ExportManager {
 
-    private const val GCM_IV_LENGTH = 12
-    private const val AES_KEY_LENGTH = 32
+    private const val VERSION = 2
+    private const val ITERATIONS = 150_000
+    private const val KEY_BITS = 256
+    private const val SALT_BYTES = 16
+    private const val IV_BYTES = 12
+    private const val TAG_BITS = 128
 
-    private val json = Json { ignoreUnknownKeys = true; prettyPrint = false }
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
-    @kotlinx.serialization.Serializable
-    data class ExportPayload(
-        val v: Int = 1,
+    @Serializable
+    data class Envelope(
+        val v: Int = VERSION,
         val salt: String,
         val iv: String,
         val data: String
     )
 
-    @kotlinx.serialization.Serializable
-    data class EntryRecord(
-        val name: String,
-        val service: String,
-        val category: String,
-        val username: String,
-        val endpoint: String,
-        val notes: String,
-        val createdAt: Long,
-        val updatedAt: Long,
-        val expiresAt: Long?,
-        val keyLength: Int,
-        val prefix: String,
-        val rotatedAt: Long?,
-        val value: String
-    )
-
-    fun export(
-        entries: List<KeyEntry>,
-        exportPassphrase: CharArray,
-        decrypt: (KeyEntry) -> String
-    ): String {
-        val salt = Random.nextBytes(16)
-        val iv = Random.nextBytes(GCM_IV_LENGTH)
-        val key = CryptoManager.deriveMasterKey(exportPassphrase, salt)
-        val records = entries.map { e ->
-            EntryRecord(
-                name = e.name, service = e.service, category = e.category,
-                username = e.username, endpoint = e.endpoint, notes = e.notes,
-                createdAt = e.createdAt, updatedAt = e.updatedAt, expiresAt = e.expiresAt,
-                keyLength = e.keyLength, prefix = e.prefix, rotatedAt = e.rotatedAt,
-                value = decrypt(e)
-            )
-        }
-        val plaintext = json.encodeToString(EntryRecord.serializer(), records)
-            .toByteArray(StandardCharsets.UTF_8)
+    fun export(vaultJson: String, passphrase: String): String {
+        require(passphrase.length >= 8) { "Use at least 8 characters" }
+        val salt = SecureRandom().generateSeed(SALT_BYTES)
+        val iv = SecureRandom().generateSeed(IV_BYTES)
+        val key = deriveKey(passphrase, salt)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(128, iv))
-        val ciphertext = cipher.doFinal(plaintext)
-
-        val payload = ExportPayload(
-            salt = Base64.getEncoder().encodeToString(salt),
-            iv = Base64.getEncoder().encodeToString(iv),
-            data = Base64.getEncoder().encodeToString(ciphertext)
+        cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(TAG_BITS, iv))
+        val ciphertext = cipher.doFinal(vaultJson.toByteArray(Charsets.UTF_8))
+        return json.encodeToString(
+            Envelope(
+                salt = Base64.getEncoder().encodeToString(salt),
+                iv = Base64.getEncoder().encodeToString(iv),
+                data = Base64.getEncoder().encodeToString(ciphertext)
+            )
         )
-        return json.encodeToString(ExportPayload.serializer(), payload)
     }
 
-    fun import(
-        blob: String,
-        exportPassphrase: CharArray,
-        encrypt: (String) -> String
-    ): List<KeyEntry> {
-        val payload = json.decodeFromString<ExportPayload>(blob)
-        val salt = Base64.getDecoder().decode(payload.salt)
-        val iv = Base64.getDecoder().decode(payload.iv)
-        val ciphertext = Base64.getDecoder().decode(payload.data)
-        val key = CryptoManager.deriveMasterKey(exportPassphrase, salt)
+    /** Returns the vault JSON, or null when the passphrase is wrong / file is corrupt. */
+    fun import(envelopeJson: String, passphrase: String): String? = runCatching {
+        val envelope = json.decodeFromString<Envelope>(envelopeJson)
+        val salt = Base64.getDecoder().decode(envelope.salt)
+        val iv = Base64.getDecoder().decode(envelope.iv)
+        val data = Base64.getDecoder().decode(envelope.data)
+        val key = deriveKey(passphrase, salt)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(128, iv))
-        val plaintext = cipher.doFinal(ciphertext)
-        val records = json.decodeFromString<List<EntryRecord>>(
-            String(plaintext, StandardCharsets.UTF_8)
-        )
-        return records.map { r ->
-            KeyEntry(
-                name = r.name, service = r.service, category = r.category,
-                username = r.username, endpoint = r.endpoint, notes = r.notes,
-                createdAt = r.createdAt, updatedAt = r.updatedAt, expiresAt = r.expiresAt,
-                keyLength = r.keyLength, prefix = r.prefix, rotatedAt = r.rotatedAt,
-                encryptedValue = encrypt(r.value)
-            )
+        cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(TAG_BITS, iv))
+        String(cipher.doFinal(data), Charsets.UTF_8)
+    }.getOrNull()
+
+    private fun deriveKey(passphrase: String, salt: ByteArray): ByteArray {
+        val spec = PBEKeySpec(passphrase.toCharArray(), salt, ITERATIONS, KEY_BITS)
+        return try {
+            javax.crypto.SecretKeyFactory
+                .getInstance("PBKDF2WithHmacSHA256")
+                .generateSecret(spec).encoded
+        } finally {
+            spec.clearPassword()
         }
     }
 }

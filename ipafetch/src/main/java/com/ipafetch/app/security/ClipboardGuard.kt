@@ -1,28 +1,37 @@
 package com.ipafetch.app.security
 
+import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.CountDownTimer
-import com.ipafetch.app.security.AuditLogger
+import android.os.Handler
+import android.os.Looper
 
 /**
- * Copies an API key to the clipboard, then auto-clears it after a short window
- * (default 45s) so a stray paste doesn't leak it into another app.
+ * Copies a secret to the clipboard and clears it again after a short window
+ * (45s by default) so a stray paste cannot leak it into another app.
  */
 object ClipboardGuard {
 
-    private const val CLEAR_DELAY_MS = 45_000L
+    private const val DEFAULT_CLEAR_MS = 45_000L
+
     private var timer: CountDownTimer? = null
 
-    fun copy(context: Context, label: String, value: String) {
+    fun copy(
+        context: Context,
+        label: String,
+        value: String,
+        clearAfterMs: Long = DEFAULT_CLEAR_MS
+    ) {
         val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        cm.setPrimaryClip(cm.newTextClip(label, value))
+        cm.setPrimaryClip(ClipData.newPlainText(label, value))
         AuditLogger.log(context, AuditLogger.EVENT_COPY, label)
         cancel()
-        timer = object : CountDownTimer(CLEAR_DELAY_MS, 1000) {
-            override fun onTick(millisUntilFinished: Long) {}
+        if (clearAfterMs <= 0L || clearAfterMs == Long.MAX_VALUE) return
+        timer = object : CountDownTimer(clearAfterMs, 1000L) {
+            override fun onTick(millisUntilFinished: Long) = Unit
             override fun onFinish() {
-                clearIfMatches(context, value)
+                Handler(Looper.getMainLooper()).post { clearIfMatches(context, value) }
             }
         }.start()
     }
@@ -31,11 +40,15 @@ object ClipboardGuard {
         val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = cm.primaryClip ?: return
         if (clip.itemCount > 0 && clip.getItemAt(0).text?.toString() == value) {
-            cm.clearPrimaryClip()
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                cm.clearPrimaryClip()
+            } else {
+                cm.setPrimaryClip(ClipData.newPlainText("", ""))
+            }
         }
     }
 
-    private fun cancel() {
+    fun cancel() {
         timer?.cancel()
         timer = null
     }

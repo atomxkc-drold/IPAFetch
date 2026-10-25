@@ -1,131 +1,125 @@
 package com.ipafetch.app.domain
 
-import androidx.room.ColumnInfo
-import androidx.room.Entity
-import androidx.room.Index
-import androidx.room.PrimaryKey
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-@Serializable
-data class KeyEntry(
-    @SerialName("id")
-    val id: Long = 0L,
+/** What kind of thing is being stored. */
+enum class EntryType(val key: String, val label: String, val hint: String) {
+    TOKEN("token", "Token", "Bearer token, PAT or bot token"),
+    API("api", "API key", "Provider-issued API key"),
+    JSON("json", "JSON", "Service-account or config JSON"),
+    LINK("link", "Link", "Console, dashboard or invite link"),
+    SECRET("secret", "Secret", "Webhook secret, signing key"),
+    NOTE("note", "Note", "Free-form secure note");
 
-    @SerialName("name")
-    val name: String = "",
-
-    @SerialName("service")
-    val service: String = "",
-
-    @SerialName("category")
-    val category: String = Category.OTHER,
-
-    @SerialName("username")
-    val username: String = "",
-
-    @SerialName("endpoint")
-    val endpoint: String = "",
-
-    @SerialName("notes")
-    val notes: String = "",
-
-    @SerialName("createdAt")
-    val createdAt: Long = System.currentTimeMillis(),
-
-    @SerialName("updatedAt")
-    val updatedAt: Long = System.currentTimeMillis(),
-
-    @SerialName("expiresAt")
-    val expiresAt: Long? = null,
-
-    @SerialName("keyLength")
-    val keyLength: Int = 0,
-
-    @SerialName("prefix")
-    val prefix: String = "",
-
-    @SerialName("rotatedAt")
-    val rotatedAt: Long? = null,
-
-    @SerialName("encryptedValue")
-    val encryptedValue: String = ""
-)
-
-@Serializable
-data class Category(
     companion object {
-        const val API = "API"
-        const val DATABASE = "Database"
-        const val CLOUD = "Cloud"
-        const val PAYMENT = "Payment"
-        const val COMMUNICATION = "Communication"
-        const val OTHER = "Other"
-
-        val ALL = listOf(API, DATABASE, CLOUD, PAYMENT, COMMUNICATION, OTHER)
+        fun from(key: String?): EntryType = entries.firstOrNull { it.key == key } ?: TOKEN
+        val editorOrder = listOf(TOKEN, API, JSON, LINK, SECRET, NOTE)
     }
-)
+}
 
-@Entity(
-    tableName = "key_entries",
-    indices = [Index(value = ["service"], unique = true)]
-)
-data class KeyEntryEntity(
-    @PrimaryKey(autoGenerate = true)
+object EntryCategories {
+    const val AI = "AI & ML"
+    const val CLOUD = "Cloud"
+    const val DEV = "Developer"
+    const val PAYMENTS = "Payments"
+    const val COMMS = "Communication"
+    const val DATA = "Data"
+    const val DESIGN = "Design"
+    const val OTHER = "Other"
+
+    val ALL = listOf(AI, CLOUD, DEV, PAYMENTS, COMMS, DATA, DESIGN, OTHER)
+}
+
+/**
+ * One vault record. [secret] is the AES-256-GCM blob (base64) — never plaintext
+ * on disk, except that links keep their URL here too so they stay private.
+ */
+@Serializable
+data class VaultEntry(
     val id: Long = 0L,
-
-    @ColumnInfo(name = "name")
-    val name: String,
-
-    @ColumnInfo(name = "service")
-    val service: String,
-
-    @ColumnInfo(name = "category")
-    val category: String = Category.OTHER,
-
-    @ColumnInfo(name = "username")
-    val username: String = "",
-
-    @ColumnInfo(name = "endpoint")
-    val endpoint: String = "",
-
-    @ColumnInfo(name = "notes")
-    val notes: String = "",
-
-    @ColumnInfo(name = "created_at")
-    val createdAt: Long = System.currentTimeMillis(),
-
-    @ColumnInfo(name = "updated_at")
-    val updatedAt: Long = System.currentTimeMillis(),
-
-    @ColumnInfo(name = "expires_at")
+    val title: String = "",
+    val brandId: String = "",
+    val type: String = EntryType.TOKEN.key,
+    val account: String = "",
+    val secret: String = "",
+    val generateUrl: String = "",
+    val docsUrl: String = "",
+    val usage: String = "",
+    val category: String = EntryCategories.OTHER,
+    val tags: List<String> = emptyList(),
+    val environment: String = "",
     val expiresAt: Long? = null,
+    val favorite: Boolean = false,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis(),
+    val lastCopiedAt: Long? = null,
+    val copyCount: Int = 0
+) {
+    @kotlinx.serialization.Transient
+    val typeValue: EntryType = EntryType.from(type)
 
-    @ColumnInfo(name = "key_length")
+    fun matches(query: String): Boolean {
+        if (query.isBlank()) return true
+        val q = query.trim().lowercase()
+        return title.lowercase().contains(q) ||
+            account.lowercase().contains(q) ||
+            category.lowercase().contains(q) ||
+            type.lowercase().contains(q) ||
+            brandId.lowercase().contains(q) ||
+            usage.lowercase().contains(q) ||
+            tags.any { it.lowercase().contains(q) }
+    }
+
+    fun isExpired(now: Long = System.currentTimeMillis()): Boolean =
+        expiresAt != null && expiresAt < now
+
+    fun expiresSoon(now: Long = System.currentTimeMillis()): Boolean {
+        val e = expiresAt ?: return false
+        return e >= now && e - now < 7L * 24 * 60 * 60 * 1000
+    }
+}
+
+/**
+ * Legacy records from the old ApiVault schema, kept so an existing install
+ * keeps its data after the rebuild.
+ */
+@Serializable
+internal data class LegacyKeyEntry(
+    val id: Long = 0L,
+    val name: String = "",
+    val service: String = "",
+    val category: String = "",
+    val username: String = "",
+    val endpoint: String = "",
+    val notes: String = "",
+    val createdAt: Long = 0L,
+    val updatedAt: Long = 0L,
+    val expiresAt: Long? = null,
     val keyLength: Int = 0,
-
-    @ColumnInfo(name = "prefix")
     val prefix: String = "",
-
-    @ColumnInfo(name = "rotated_at")
     val rotatedAt: Long? = null,
-
-    @ColumnInfo(name = "encrypted_value")
-    val encryptedValue: String = ""
-)
-
-fun KeyEntryEntity.toDomain() = KeyEntry(
-    id = id, name = name, service = service, category = category,
-    username = username, endpoint = endpoint, notes = notes,
-    createdAt = createdAt, updatedAt = updatedAt, expiresAt = expiresAt,
-    keyLength = keyLength, prefix = prefix, rotatedAt = rotatedAt,
-    encryptedValue = encryptedValue
-)
-
-fun KeyEntry.toEntity() = KeyEntryEntity(
-    id = id, name = name, service = service, category = category,
-    username = username, endpoint = endpoint, notes = notes,
-    createdAt = createdAt, updatedAt = updatedAt, expiresAt = expiresAt,
-    keyLength = keyLength, prefix = prefix, rotatedAt = rotatedAt,
-    encryptedValue = encryptedValue
-)
+    @SerialName("encryptedValue") val encryptedValue: String = ""
+) {
+    fun toEntry(): VaultEntry = VaultEntry(
+        id = id,
+        title = name.ifBlank { service.ifBlank { "Imported key" } },
+        brandId = "",
+        type = EntryType.API.key,
+        account = username,
+        secret = encryptedValue,
+        generateUrl = endpoint,
+        docsUrl = "",
+        usage = notes,
+        category = when {
+            category.contains("API", true) -> EntryCategories.DEV
+            category.contains("Database", true) -> EntryCategories.DATA
+            category.contains("Cloud", true) -> EntryCategories.CLOUD
+            category.contains("Payment", true) -> EntryCategories.PAYMENTS
+            category.contains("Communication", true) -> EntryCategories.COMMS
+            else -> EntryCategories.OTHER
+        },
+        createdAt = createdAt,
+        updatedAt = if (updatedAt == 0L) createdAt else updatedAt
+    )
+}
