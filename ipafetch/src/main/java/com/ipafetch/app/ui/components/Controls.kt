@@ -69,6 +69,7 @@ fun ExpressiveSwitch(
     enabled: Boolean = true
 ) {
     val colors = IpafetchTheme.colors
+    val tactile = IpafetchTheme.settings.tactile
     val haptics = LocalHapticFeedback.current
     val track by animateColorAsState(
         targetValue = when {
@@ -100,7 +101,7 @@ fun ExpressiveSwitch(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
             ) {
-                if (IpafetchTheme.settings.tactile) {
+                if (tactile) {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                 }
                 onCheckedChange(!checked)
@@ -199,6 +200,7 @@ fun <T> ExpressiveSegmented(
     onSelect: (T) -> Unit
 ) {
     val colors = IpafetchTheme.colors
+    val tactile = IpafetchTheme.settings.tactile
     val haptics = LocalHapticFeedback.current
     val scale = IpafetchTheme.settings.cornerScale
     Row(
@@ -224,7 +226,7 @@ fun <T> ExpressiveSegmented(
                     .clip(RoundedCornerShape(percent = 42))
                     .background(bg)
                     .clickable {
-                        if (IpafetchTheme.settings.tactile) {
+                        if (tactile) {
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                         }
                         onSelect(option)
@@ -320,8 +322,7 @@ fun DropdownRow(
         )
         DropdownMenu(
             expanded = open,
-            onDismissRequest = { open = false },
-            containerColor = colors.rowStrong
+            onDismissRequest = { open = false }
         ) {
             options.forEach { option ->
                 DropdownMenuItem(

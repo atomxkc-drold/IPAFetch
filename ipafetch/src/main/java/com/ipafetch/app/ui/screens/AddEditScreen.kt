@@ -29,7 +29,7 @@ import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.Parse
+import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
@@ -424,8 +424,8 @@ private fun BrandPickerTile(brand: Brand, selected: Boolean, onClick: () -> Unit
 
 private fun typeIcon(type: EntryType) = when (type) {
     EntryType.TOKEN -> Icons.Rounded.Key
-    EntryType.API -> Icons.Rounded.Parse
-    EntryType.JSON -> Icons.Rounded.Parse
+    EntryType.API -> Icons.Rounded.Code
+    EntryType.JSON -> Icons.Rounded.Code
     EntryType.LINK -> Icons.Rounded.Link
     EntryType.SECRET -> Icons.Rounded.Key
     EntryType.NOTE -> Icons.Rounded.ContentCopy

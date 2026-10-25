@@ -62,6 +62,7 @@ fun BottomPillNav(
     modifier: Modifier = Modifier
 ) {
     val colors = IpafetchTheme.colors
+    val tactile = IpafetchTheme.settings.tactile
     val haptics = LocalHapticFeedback.current
     GlassSurface(
         modifier = modifier
@@ -96,7 +97,7 @@ fun BottomPillNav(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
                         ) {
-                            if (IpafetchTheme.settings.tactile) {
+                            if (tactile) {
                                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             }
                             onSelect(item)

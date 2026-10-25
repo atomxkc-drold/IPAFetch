@@ -1,20 +1,28 @@
 package com.ipafetch.app.data
 
 import android.content.Context
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKeys
-import com.ipafetch.app.crypto.KeyStoreManager
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import android.util.Base64
+import java.security.KeyStore
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
 
 /**
- * Encrypted preferences backed by a Keystore master key (AES-256-GCM).
+ * Device-sealed preferences (salt, wrapped master key, verifier, vault blob).
  *
- * Holds the salt for password derivation, the Keystore-wrapped master key used
- * by the biometric path, the password verifier, and the encrypted vault blob.
- * No plaintext secret is ever written here.
+ * Every value is AES-256-GCM encrypted with a non-auth Keystore key, so the
+ * file is unreadable even with the app's private storage mounted. The vault
+ * itself is also encrypted with the password-derived key; this is defence in
+ * depth, not the only layer.
  */
 object SecurePrefs {
 
     private const val PREFS_NAME = "ipafetch_secure"
+    private const val KEY_ALIAS = "ipafetch_prefs_key"
+
     private const val KEY_SALT = "master_salt"
     private const val KEY_WRAPPED = "master_wrapped"
     private const val KEY_SETUP_DONE = "setup_done"
@@ -22,65 +30,96 @@ object SecurePrefs {
     private const val KEY_VAULT = "vault_blob"
     private const val KEY_BIOMETRIC_ENABLED = "biometric_enabled"
 
-    private var prefs: EncryptedSharedPreferences? = null
+    private const val GCM_TAG_BITS = 128
+
+    private fun prefs(context: Context) = context.applicationContext
+        .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     @Synchronized
-    private fun get(context: Context): EncryptedSharedPreferences {
-        prefs?.let { return it }
-        val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
-        val created = EncryptedSharedPreferences.create(
-            context.applicationContext,
-            PREFS_NAME,
-            masterKeyAlias,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+    private fun key(): SecretKey {
+        val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        (store.getEntry(KEY_ALIAS, null) as? KeyStore.SecretKeyEntry)?.let { return it.secretKey }
+        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+        generator.init(
+            KeyGenParameterSpec.Builder(
+                KEY_ALIAS,
+                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+            ).apply {
+                setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                setRandomizedEncryptionRequired(true)
+            }.build()
         )
-        prefs = created
-        return created
+        return generator.generateKey()
     }
 
-    fun isSetupDone(context: Context): Boolean =
-        get(context).getBoolean(KEY_SETUP_DONE, false)
+    private fun seal(value: String): String {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, key())
+        val ciphertext = cipher.doFinal(value.toByteArray(Charsets.UTF_8))
+        return Base64.encodeToString(cipher.iv, Base64.NO_WRAP) + ":" +
+            Base64.encodeToString(ciphertext, Base64.NO_WRAP)
+    }
 
-    fun markSetupDone(context: Context, done: Boolean) =
-        get(context).edit().putBoolean(KEY_SETUP_DONE, done).apply()
+    private fun unseal(stored: String): String? = runCatching {
+        val (ivPart, dataPart) = stored.split(":", limit = 2)
+        val iv = Base64.decode(ivPart, Base64.NO_WRAP)
+        val data = Base64.decode(dataPart, Base64.NO_WRAP)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(GCM_TAG_BITS, iv))
+        String(cipher.doFinal(data), Charsets.UTF_8)
+    }.getOrNull()
+
+    private fun putString(context: Context, keyName: String, value: String) {
+        prefs(context).edit().putString(keyName, seal(value)).apply()
+    }
+
+    private fun getString(context: Context, keyName: String): String? =
+        prefs(context).getString(keyName, null)?.let { unseal(it) }
+
+    private fun putBool(context: Context, keyName: String, value: Boolean) =
+        putString(context, keyName, if (value) "1" else "0")
+
+    private fun getBool(context: Context, keyName: String, default: Boolean): Boolean =
+        getString(context, keyName)?.let { it == "1" } ?: default
+
+    fun isSetupDone(context: Context): Boolean = getBool(context, KEY_SETUP_DONE, false)
+
+    fun markSetupDone(context: Context, done: Boolean) = putBool(context, KEY_SETUP_DONE, done)
 
     fun isBiometricEnabled(context: Context): Boolean =
-        get(context).getBoolean(KEY_BIOMETRIC_ENABLED, true)
+        getBool(context, KEY_BIOMETRIC_ENABLED, true)
 
     fun setBiometricEnabled(context: Context, enabled: Boolean) =
-        get(context).edit().putBoolean(KEY_BIOMETRIC_ENABLED, enabled).apply()
+        putBool(context, KEY_BIOMETRIC_ENABLED, enabled)
 
-    fun getSalt(context: Context): ByteArray? {
-        val b64 = get(context).getString(KEY_SALT, null) ?: return null
-        return KeyStoreManager.fromB64(b64)
-    }
+    fun getSalt(context: Context): ByteArray? =
+        getString(context, KEY_SALT)?.let { Base64.decode(it, Base64.NO_WRAP) }
 
-    fun saveSalt(context: Context, salt: ByteArray) {
-        get(context).edit().putString(KEY_SALT, KeyStoreManager.toB64(salt)).apply()
-    }
+    fun saveSalt(context: Context, salt: ByteArray) =
+        putString(context, KEY_SALT, Base64.encodeToString(salt, Base64.NO_WRAP))
 
-    fun getWrappedMasterKey(context: Context): String? =
-        get(context).getString(KEY_WRAPPED, null)
+    fun getWrappedMasterKey(context: Context): String? = getString(context, KEY_WRAPPED)
 
-    fun saveWrappedMasterKey(context: Context, wrapped: String) {
-        get(context).edit().putString(KEY_WRAPPED, wrapped).apply()
-    }
+    fun saveWrappedMasterKey(context: Context, wrapped: String) =
+        putString(context, KEY_WRAPPED, wrapped)
 
-    fun getVerifier(context: Context): String? = get(context).getString(KEY_VERIFIER, null)
+    fun getVerifier(context: Context): String? = getString(context, KEY_VERIFIER)
 
-    fun saveVerifier(context: Context, verifier: String) {
-        get(context).edit().putString(KEY_VERIFIER, verifier).apply()
-    }
+    fun saveVerifier(context: Context, verifier: String) =
+        putString(context, KEY_VERIFIER, verifier)
 
-    fun saveVault(context: Context, entriesJson: String) {
-        get(context).edit().putString(KEY_VAULT, entriesJson).apply()
-    }
+    fun saveVault(context: Context, entriesJson: String) =
+        putString(context, KEY_VAULT, entriesJson)
 
-    fun loadVault(context: Context): String? = get(context).getString(KEY_VAULT, null)
+    fun loadVault(context: Context): String? = getString(context, KEY_VAULT)
 
     fun reset(context: Context) {
-        get(context).edit().clear().apply()
-        KeyStoreManager.deleteMasterKey()
+        prefs(context).edit().clear().apply()
+        runCatching {
+            val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+            if (store.containsAlias(KEY_ALIAS)) store.deleteEntry(KEY_ALIAS)
+        }
+        com.ipafetch.app.crypto.KeyStoreManager.deleteMasterKey()
     }
 }

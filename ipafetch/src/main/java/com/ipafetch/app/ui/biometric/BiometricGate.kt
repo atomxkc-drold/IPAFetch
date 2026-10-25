@@ -67,19 +67,21 @@ class BiometricGate(
         prompt?.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
     }
 
-    private fun createDecryptCipher(): Cipher? = try {
-        val wrappedB64 = SecurePrefs.getWrappedMasterKey(activity) ?: return null
-        val wrapped = KeyStoreManager.fromB64(wrappedB64)
-        val iv = wrapped.copyOfRange(0, 12)
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(
-            Cipher.DECRYPT_MODE,
-            KeyStoreManager.getOrCreateMasterKey(),
-            GCMParameterSpec(128, iv)
-        )
-        cipher
-    } catch (e: Exception) {
-        null
+    private fun createDecryptCipher(): Cipher? {
+        return try {
+            val wrappedB64 = SecurePrefs.getWrappedMasterKey(activity) ?: return null
+            val wrapped = KeyStoreManager.fromB64(wrappedB64)
+            val iv = wrapped.copyOfRange(0, 12)
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(
+                Cipher.DECRYPT_MODE,
+                KeyStoreManager.getOrCreateMasterKey(),
+                GCMParameterSpec(128, iv)
+            )
+            cipher
+        } catch (e: Exception) {
+            null
+        }
     }
 
     private fun decryptBlob(cipher: Cipher): ByteArray? {

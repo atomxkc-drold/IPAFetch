@@ -45,13 +45,35 @@ object KeyStoreManager {
             setUserAuthenticationValidityDurationSeconds(30)
             setInvalidatedByBiometricEnrollment(true)
             setRandomizedEncryptionRequired(true)
-            // StrongBox is API 28+; guard for minSdk 26 support
+            // StrongBox is API 28+ and not present on every device.
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-                setStrongBoxBacked(true)
+                runCatching { setIsStrongBoxBacked(true) }
             }
         }.build()
-        keyGenerator.init(spec)
-        keyGenerator.generateKey()
+        val generated = runCatching {
+            keyGenerator.init(spec)
+            keyGenerator.generateKey()
+        }.recoverCatching {
+            // Retry without StrongBox when the device cannot provide it.
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                val fallback = KeyGenParameterSpec.Builder(
+                    KEY_ALIAS,
+                    KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+                ).apply {
+                    setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                    setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                    setUserAuthenticationRequired(true)
+                    setUserAuthenticationValidityDurationSeconds(30)
+                    setInvalidatedByBiometricEnrollment(true)
+                    setRandomizedEncryptionRequired(true)
+                }.build()
+                keyGenerator.init(fallback)
+                keyGenerator.generateKey()
+            } else {
+                throw it
+            }
+        }
+        generated.getOrThrow()
         return (ks.getEntry(KEY_ALIAS, null) as KeyStore.SecretKeyEntry).secretKey
     }
 

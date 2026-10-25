@@ -35,7 +35,7 @@ object CryptoManager {
     ): ByteArray {
         val spec = PBEKeySpec(password, salt, iterations, PBKDF2_KEY_LENGTH)
         val factory = javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
-        return try { factory.generateSecret(spec).encoded } finally { factory.close() }
+        return factory.generateSecret(spec).encoded
     }
 
     /** Generate a cryptographically random salt for key derivation. */
