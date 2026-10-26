@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -20,18 +19,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.Code
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -43,7 +41,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,6 +49,9 @@ import androidx.compose.ui.unit.sp
 import com.ipafetch.app.crypto.CryptoManager
 import com.ipafetch.app.domain.EntryCategories
 import com.ipafetch.app.domain.EntryType
+import com.ipafetch.app.domain.PermissionCatalog
+import com.ipafetch.app.domain.PermissionGrant
+import com.ipafetch.app.domain.TokenVariants
 import com.ipafetch.app.domain.VaultEntry
 import com.ipafetch.app.ui.brand.Brand
 import com.ipafetch.app.ui.brand.BrandCatalog
@@ -65,23 +65,30 @@ import com.ipafetch.app.ui.components.ExpressiveTextField
 import com.ipafetch.app.ui.components.PrimaryButton
 import com.ipafetch.app.ui.components.RoundIconButton
 import com.ipafetch.app.ui.components.SettingsRow
-import com.ipafetch.app.ui.components.TrailingValue
 import com.ipafetch.app.ui.theme.IpafetchTheme
-
 import com.ipafetch.app.ui.theme.rowShape
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+private val expiryChoices = listOf(
+    "Never" to 0,
+    "7 days" to 7,
+    "30 days" to 30,
+    "90 days" to 90,
+    "1 year" to 365
+)
+
 /**
- * Add / edit sheet. Brand selection drives the default console link and the
- * type, so a new entry takes about three taps.
+ * Add / edit sheet. Provider drives the console link, category, token variants
+ * and the permission vocabulary; tags and permissions open as bottom sheets.
  */
 @Composable
 fun AddEditScreen(
     existing: VaultEntry?,
     initialBrandId: String? = null,
+    knownTags: List<String> = emptyList(),
     onSave: (VaultEntry, String?) -> Unit,
     onCancel: () -> Unit,
     onDelete: (() -> Unit)? = null
@@ -90,7 +97,15 @@ fun AddEditScreen(
     var title by remember(existing?.id) { mutableStateOf(existing?.title ?: "") }
     var brandId by remember(existing?.id) { mutableStateOf(existing?.brandId ?: initialBrandId ?: "") }
     var type by remember(existing?.id) { mutableStateOf(EntryType.from(existing?.type)) }
+    var variant by remember(existing?.id) {
+        mutableStateOf(
+            existing?.variant
+                ?: TokenVariants.forBrand(initialBrandId ?: existing?.brandId ?: "").firstOrNull()
+                ?: ""
+        )
+    }
     var account by remember(existing?.id) { mutableStateOf(existing?.account ?: "") }
+    var usedBy by remember(existing?.id) { mutableStateOf(existing?.usedBy ?: "") }
     var secret by remember(existing?.id) { mutableStateOf(existing?.secret ?: "") }
     var generateUrl by remember(existing?.id) {
         mutableStateOf(existing?.generateUrl ?: BrandCatalog.consoleFor(initialBrandId ?: "") ?: "")
@@ -101,15 +116,25 @@ fun AddEditScreen(
         mutableStateOf(existing?.category ?: BrandCatalog.by(initialBrandId ?: "")?.category ?: EntryCategories.OTHER)
     }
     var environment by remember(existing?.id) { mutableStateOf(existing?.environment ?: "") }
-    var tagsText by remember(existing?.id) { mutableStateOf(existing?.tags?.joinToString(", ") ?: "") }
+    var tags by remember(existing?.id) { mutableStateOf(existing?.tags ?: emptyList()) }
+    var permissions by remember(existing?.id) { mutableStateOf(existing?.permissions ?: emptyList()) }
     var expiresAt by remember(existing?.id) { mutableStateOf(existing?.expiresAt) }
     var favorite by remember(existing?.id) { mutableStateOf(existing?.favorite ?: false) }
+
     var error by remember { mutableStateOf<String?>(null) }
     var pickerOpen by remember { mutableStateOf(existing == null && initialBrandId == null) }
+    var showTags by remember { mutableStateOf(false) }
+    var showPermissions by remember { mutableStateOf(false) }
+    var showDate by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
 
     val brands = remember(query) { BrandCatalog.search(query).take(24) }
+    val variants = remember(brandId) { TokenVariants.forBrand(brandId) }
     val isNew = existing == null
+    val permissionDefs = remember(brandId) { PermissionCatalog.forBrand(brandId) }
+    val lockedCount = remember(permissions, brandId) {
+        permissions.count { PermissionCatalog.def(brandId, it.name)?.readOnly == true }
+    }
 
     AppBackground(Modifier.fillMaxSize()) {
         LazyColumn(
@@ -129,7 +154,7 @@ fun AddEditScreen(
                         modifier = Modifier.weight(1f)
                     )
                     RoundIconButton(
-                        icon = if (favorite) Icons.Rounded.Star else Icons.Rounded.Star,
+                        icon = Icons.Rounded.Star,
                         contentDescription = "Favourite",
                         onClick = { favorite = !favorite },
                         tint = if (favorite) colors.accent else colors.textSecondary
@@ -152,7 +177,7 @@ fun AddEditScreen(
                     value = title,
                     onValueChange = { title = it },
                     label = "Title",
-                    placeholder = "e.g. OpenAI production key"
+                    placeholder = "e.g. GitHub deploy token"
                 )
             }
 
@@ -197,11 +222,50 @@ fun AddEditScreen(
                                         if (title.isBlank()) title = brand.name
                                         if (generateUrl.isBlank()) generateUrl = brand.consoleUrl
                                         if (category == EntryCategories.OTHER) category = brand.category
+                                        val nextVariants = TokenVariants.forBrand(brand.id)
+                                        variant = nextVariants.firstOrNull() ?: ""
                                         pickerOpen = false
                                     }
                                 )
                             }
                         }
+                    }
+                }
+            }
+
+            if (variants.isNotEmpty()) {
+                item {
+                    Column {
+                        Text(
+                            "GitHub token type",
+                            color = colors.textSecondary,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(start = 6.dp, bottom = 8.dp)
+                        )
+                        ExpressiveSegmented(
+                            options = variants,
+                            selected = variant.ifBlank { variants.first() },
+                            label = { it },
+                            onSelect = { chosen ->
+                                variant = chosen
+                                if (chosen == "OAuth app") {
+                                    if (type == EntryType.TOKEN) type = EntryType.SECRET
+                                }
+                            }
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            when (variant) {
+                                "Fine-grained" -> "Scoped to one owner, per-permission, expires by default."
+                                "Classic" -> "Account-wide scopes. Prefer fine-grained when you can."
+                                "OAuth app" -> "Client ID plus client secret, with a callback URL."
+                                else -> "Choose how this token is issued."
+                            },
+                            color = colors.textSecondary,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp,
+                            modifier = Modifier.padding(start = 6.dp)
+                        )
                     }
                 }
             }
@@ -225,7 +289,7 @@ fun AddEditScreen(
                     monospace = true,
                     singleLine = false,
                     minHeight = 96,
-                    trailing = if (type == EntryType.TOKEN || type == EntryType.API) {
+                    trailing = if (type == EntryType.TOKEN || type == EntryType.API || type == EntryType.SECRET) {
                         {
                             Box(
                                 modifier = Modifier
@@ -279,6 +343,15 @@ fun AddEditScreen(
 
             item {
                 ExpressiveTextField(
+                    value = usedBy,
+                    onValueChange = { usedBy = it },
+                    label = "Used by application",
+                    placeholder = "e.g. deploy-worker, iOS app, Zapier"
+                )
+            }
+
+            item {
+                ExpressiveTextField(
                     value = account,
                     onValueChange = { account = it },
                     label = "Account / project (optional)",
@@ -313,34 +386,83 @@ fun AddEditScreen(
             }
 
             item {
-                SettingsRow(
-                    title = "Expiry",
-                    supporting = expiryText(expiresAt),
-                    leading = { Icon(Icons.Rounded.CalendarMonth, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
-                    trailing = {
-                        if (expiresAt != null) {
-                            RoundIconButton(Icons.Rounded.Close, "Clear expiry", { expiresAt = null }, size = 32)
-                        } else {
-                            Text("Set", color = colors.accent, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                        }
-                    },
-                    onClick = {
-                        expiresAt = if (expiresAt == null) {
-                            Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 90) }.timeInMillis
-                        } else {
-                            val calendar = Calendar.getInstance().apply { timeInMillis = expiresAt!!; add(Calendar.DAY_OF_YEAR, 30) }
-                            calendar.timeInMillis
-                        }
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "Expires",
+                            color = colors.textSecondary,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(start = 6.dp).weight(1f)
+                        )
+                        Text(
+                            expirySummary(expiresAt),
+                            color = colors.textPrimary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
+                    Spacer(Modifier.height(8.dp))
+                    ChipRow(
+                        options = expiryChoices.map { it.first },
+                        selected = expiryChoices.firstOrNull {
+                            it.second > 0 && matchesExpiry(expiresAt, it.second)
+                        }?.first ?: if (expiresAt == null) "Never" else "",
+                        label = { it },
+                        onSelect = { label ->
+                            val days = expiryChoices.firstOrNull { it.first == label }?.second ?: 0
+                            expiresAt = if (days == 0) null else daysFromNow(days)
+                        }
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    SettingsRow(
+                        title = "Pick an exact date",
+                        supporting = "Opens a calendar",
+                        leading = {
+                            Icon(
+                                Icons.Rounded.CalendarMonth,
+                                contentDescription = null,
+                                tint = colors.accent,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        },
+                        onClick = { showDate = true }
+                    )
+                }
+            }
+
+            item {
+                SettingsRow(
+                    title = "Permissions",
+                    supporting = when {
+                        permissions.isEmpty() -> "None selected · tap to choose"
+                        lockedCount > 0 -> "${permissions.size} selected · $lockedCount read-only by provider"
+                        else -> "${permissions.size} selected · tap to edit"
+                    },
+                    leading = {
+                        Icon(
+                            Icons.Rounded.Lock,
+                            contentDescription = null,
+                            tint = colors.accent,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    onClick = { showPermissions = true }
                 )
             }
 
             item {
-                ExpressiveTextField(
-                    value = tagsText,
-                    onValueChange = { tagsText = it },
-                    label = "Tags (comma separated)",
-                    placeholder = "prod, billing"
+                SettingsRow(
+                    title = "Tags",
+                    supporting = tags.joinToString(", ").ifBlank { "No tags yet · tap to add" },
+                    leading = {
+                        Icon(
+                            Icons.Rounded.LocalOffer,
+                            contentDescription = null,
+                            tint = colors.accent,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    onClick = { showTags = true }
                 )
             }
 
@@ -352,7 +474,8 @@ fun AddEditScreen(
                     onClick = {
                         val problem = when {
                             title.isBlank() -> "Give the entry a title"
-                            type == EntryType.JSON && secret.isNotBlank() && !isValidJson(secret) -> "That JSON does not parse"
+                            type == EntryType.JSON && secret.isNotBlank() && !isValidJson(secret) ->
+                                "That JSON does not parse"
                             else -> null
                         }
                         error = problem
@@ -360,13 +483,16 @@ fun AddEditScreen(
                             val entry = (existing ?: VaultEntry()).copy(
                                 title = title.trim(),
                                 brandId = brandId,
+                                variant = variant,
                                 type = type.key,
                                 account = account.trim(),
+                                usedBy = usedBy.trim(),
                                 generateUrl = generateUrl.trim(),
                                 docsUrl = docsUrl.trim(),
                                 usage = usage.trim(),
                                 category = category,
-                                tags = tagsText.split(',').map { it.trim() }.filter { it.isNotEmpty() },
+                                tags = tags,
+                                permissions = permissions,
                                 environment = environment,
                                 expiresAt = expiresAt,
                                 favorite = favorite,
@@ -395,6 +521,30 @@ fun AddEditScreen(
                 }
             }
         }
+    }
+
+    if (showTags) {
+        TagsSheet(
+            current = tags,
+            known = (knownTags + tags).distinct(),
+            onDismiss = { showTags = false },
+            onChange = { tags = it }
+        )
+    }
+    if (showPermissions) {
+        PermissionsSheet(
+            brandId = brandId,
+            grants = permissions,
+            onDismiss = { showPermissions = false },
+            onChange = { permissions = it }
+        )
+    }
+    if (showDate) {
+        ExpiryPickerDialog(
+            initial = expiresAt,
+            onDismiss = { showDate = false },
+            onPick = { expiresAt = it }
+        )
     }
 }
 
@@ -432,9 +582,20 @@ private fun typeIcon(type: EntryType) = when (type) {
     EntryType.NOTE -> Icons.Rounded.ContentCopy
 }
 
-private fun expiryText(expiresAt: Long?): String =
-    if (expiresAt == null) "Never expires · tap to set 90 days"
-    else SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(expiresAt)) + " · tap to extend 30 days"
+private fun daysFromNow(days: Int): Long =
+    Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, days) }.timeInMillis
+
+private fun matchesExpiry(expiresAt: Long?, days: Int): Boolean {
+    val target = expiresAt ?: return false
+    val diffDays = (target - System.currentTimeMillis()) / (24 * 60 * 60 * 1000)
+    return kotlin.math.abs(diffDays - days) <= 1
+}
+
+private fun expirySummary(expiresAt: Long?): String {
+    if (expiresAt == null) return "Never"
+    val date = SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(expiresAt))
+    return if (expiresAt < System.currentTimeMillis()) "$date · expired" else date
+}
 
 private fun isValidJson(value: String): Boolean = runCatching {
     if (value.trimStart().startsWith("[")) org.json.JSONArray(value) else org.json.JSONObject(value)

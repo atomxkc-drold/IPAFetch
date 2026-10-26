@@ -34,6 +34,7 @@ data class AppSettings(
     val autoLockSeconds: Int = 60,
     val clipboardClear: Boolean = true,
     val allowScreenshots: Boolean = false,
+    val knownTags: List<String> = emptyList(),
     val compactRows: Boolean = false
 ) {
     val isDarkPreferred: Boolean get() = themeMode == "dark"

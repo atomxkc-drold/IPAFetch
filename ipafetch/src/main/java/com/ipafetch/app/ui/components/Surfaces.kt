@@ -60,6 +60,7 @@ fun AppBackground(
 ) {
     val colors = IpafetchTheme.colors
     val settings = IpafetchTheme.settings
+    val glow = if (settings.progressiveBlur) 1f else 0.5f
     Box(
         modifier = modifier
             .background(
@@ -72,15 +73,22 @@ fun AppBackground(
                     .align(Alignment.TopEnd)
                     .padding(top = 40.dp, end = 0.dp)
                     .size(240.dp)
-                    .blur(90.dp)
-                    .background(colors.accent.copy(alpha = 0.20f), CircleShape)
+                    .blur(if (settings.progressiveBlur) 90.dp else 0.dp)
+                    .background(colors.accent.copy(alpha = 0.22f * glow), CircleShape)
             )
             Box(
                 Modifier
                     .align(Alignment.BottomStart)
                     .size(200.dp)
-                    .blur(100.dp)
-                    .background(colors.accent.copy(alpha = 0.12f), CircleShape)
+                    .blur(if (settings.progressiveBlur) 100.dp else 0.dp)
+                    .background(colors.accent.copy(alpha = 0.14f * glow), CircleShape)
+            )
+            Box(
+                Modifier
+                    .align(Alignment.Center)
+                    .size(280.dp)
+                    .blur(if (settings.progressiveBlur) 120.dp else 0.dp)
+                    .background(colors.accent.copy(alpha = 0.07f * glow), CircleShape)
             )
         }
         content()
@@ -165,14 +173,21 @@ fun SettingsRow(
     content: (@Composable ColumnScope.() -> Unit)? = null
 ) {
     val colors = IpafetchTheme.colors
+    val settings = IpafetchTheme.settings
+    val glass = settings.progressiveBlur && !settings.reduceEffects
     val scale = IpafetchTheme.settings.cornerScale
     val shape = rowShape(scale)
-    val base = if (nested) colors.rowInset else colors.row
+    val base = when {
+        glass -> colors.glassRow
+        nested -> colors.rowInset
+        else -> colors.row
+    }
     Column(
         modifier = modifier
             .fillMaxWidth()
             .clip(shape)
             .background(base)
+            .then(if (glass) Modifier.border(1.dp, colors.glassSheen, shape) else Modifier)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = contentPadding, vertical = 13.dp)
             .defaultMinSize(minHeight = 32.dp)

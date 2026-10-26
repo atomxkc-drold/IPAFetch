@@ -173,6 +173,7 @@ fun SetupScreen(
 fun UnlockScreen(
     error: String?,
     biometricAvailable: Boolean,
+    biometricNotice: String? = null,
     onSubmitPassword: (String) -> Unit,
     onBiometric: () -> Unit
 ) {
@@ -200,6 +201,15 @@ fun UnlockScreen(
             SecondaryButton(
                 label = if (triedBiometric) "Retry biometric unlock" else "Use biometrics",
                 onClick = { triedBiometric = true; onBiometric() }
+            )
+        }
+        if (biometricNotice != null) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = biometricNotice,
+                color = colors.textSecondary,
+                fontSize = 12.sp,
+                lineHeight = 17.sp
             )
         }
         Spacer(Modifier.height(18.dp))

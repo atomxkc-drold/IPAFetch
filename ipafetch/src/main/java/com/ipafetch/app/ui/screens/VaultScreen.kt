@@ -3,6 +3,7 @@ package com.ipafetch.app.ui.screens
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -172,6 +173,7 @@ private fun EntryRow(
     val brand = BrandCatalog.by(entry.brandId)
     val type = EntryType.from(entry.type)
     val shape = rowShape(settings.cornerScale)
+    val glass = settings.progressiveBlur && !settings.reduceEffects
 
     Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         Row(
@@ -194,7 +196,8 @@ private fun EntryRow(
                 .fillMaxWidth()
                 .offset { IntOffset(offset.roundToInt(), 0) }
                 .clip(shape)
-                .background(colors.row)
+                .background(if (glass) colors.glassRow else colors.row)
+                .then(if (glass) Modifier.border(1.dp, colors.glassSheen, shape) else Modifier)
                 .pointerInput(entry.id, leftAction, rightAction) {
                     detectHorizontalDragGestures(
                         onDragEnd = {

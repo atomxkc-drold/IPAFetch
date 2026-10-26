@@ -1,106 +1,126 @@
 package com.ipafetch.app.ui.biometric
 
-import android.content.Context
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.fragment.app.FragmentActivity
 import com.ipafetch.app.R
 import com.ipafetch.app.crypto.KeyStoreManager
 import com.ipafetch.app.data.SecurePrefs
-import java.util.concurrent.Executor
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 
 /**
- * Biometric/PIN gate backed by a CryptoObject: the Keystore key is only usable
- * inside the authenticated prompt, which decrypts the wrapped master key.
+ * Biometric / device-credential gate.
+ *
+ * The wrapped master key is sealed with a device-bound Keystore key, so this
+ * class only needs to decrypt that blob after a successful prompt. Authenticator
+ * selection is adaptive: biometrics + device credential when both exist, then
+ * biometric-only, then credential-only, so it works on devices that support
+ * one but not the other.
  */
 class BiometricGate(
     private val activity: FragmentActivity,
     private val onUnlocked: (masterKey: ByteArray) -> Unit,
-    private val onFailed: (String) -> Unit,
-    private val onUnavailable: (String) -> Unit
+    private val onError: (String) -> Unit
 ) {
-    private val executor: Executor = androidx.core.content.ContextCompat.getMainExecutor(activity)
     private var prompt: BiometricPrompt? = null
 
-    fun canAuthenticate(): Boolean {
-        val manager = BiometricManager.from(activity)
-        return manager.canAuthenticate(ALLOWED) == BiometricManager.BIOMETRIC_SUCCESS
-    }
+    private data class Plan(
+        val authenticators: Int,
+        val negativeButton: Boolean
+    )
 
-    fun prompt() {
-        if (!canAuthenticate()) {
-            onUnavailable(activity.getString(R.string.biometric_not_available))
+    fun isAvailable(): Boolean = plan() != null
+
+    fun authenticate() {
+        val wrapped = SecurePrefs.getWrappedMasterKey(activity)
+        if (wrapped.isNullOrBlank()) {
+            onError("Biometric unlock isn't set up for this vault yet. Unlock with your master password once and it will be enabled.")
             return
         }
-        val cipher = createDecryptCipher() ?: run {
-            onUnavailable(activity.getString(R.string.biometric_cipher_init_failed))
+        val chosen = plan() ?: run {
+            onError("No biometric or screen lock is set up on this device.")
             return
         }
-        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+        val cipher = createDecryptCipher(wrapped) ?: run {
+            onError("Could not open the vault key with the Keystore.")
+            return
+        }
+
+        val builder = BiometricPrompt.PromptInfo.Builder()
             .setTitle(activity.getString(R.string.biometric_title))
             .setSubtitle(activity.getString(R.string.biometric_subtitle))
-            .setAllowedAuthenticators(ALLOWED)
+            .setAllowedAuthenticators(chosen.authenticators)
             .setConfirmationRequired(false)
-            .build()
+        if (chosen.negativeButton) {
+            builder.setNegativeButtonText(activity.getString(R.string.biometric_use_password))
+        }
 
         prompt = BiometricPrompt(
             activity,
-            executor,
+            androidx.core.content.ContextCompat.getMainExecutor(activity),
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     val authenticated = result.cryptoObject?.cipher ?: cipher
-                    val key = decryptBlob(authenticated)
-                    if (key != null) onUnlocked(key) else onFailed(activity.getString(R.string.biometric_decrypt_failed))
+                    val key = decryptBlob(authenticated, wrapped)
+                    if (key != null) {
+                        onUnlocked(key)
+                    } else {
+                        onError(activity.getString(R.string.biometric_decrypt_failed))
+                    }
                 }
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                    onFailed(errString.toString())
-                }
-
-                override fun onAuthenticationFailed() {
-                    onFailed(activity.getString(R.string.biometric_failed))
+                    when (errorCode) {
+                        BiometricPrompt.ERROR_NEGATIVE_BUTTON,
+                        BiometricPrompt.ERROR_USER_CANCELED,
+                        BiometricPrompt.ERROR_CANCELED -> onError("Biometric unlock cancelled")
+                        else -> onError(errString.toString())
+                    }
                 }
             }
         )
-        prompt?.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
+        prompt?.authenticate(builder.build(), BiometricPrompt.CryptoObject(cipher))
     }
 
-    private fun createDecryptCipher(): Cipher? {
-        return try {
-            val wrappedB64 = SecurePrefs.getWrappedMasterKey(activity) ?: return null
-            val wrapped = KeyStoreManager.fromB64(wrappedB64)
-            val iv = wrapped.copyOfRange(0, 12)
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(
+    private fun plan(): Plan? {
+        val manager = BiometricManager.from(activity)
+        val bio = BiometricManager.Authenticators.BIOMETRIC_WEAK
+        val credential = BiometricManager.Authenticators.DEVICE_CREDENTIAL
+
+        return when {
+            manager.canAuthenticate(bio or credential) == BiometricManager.BIOMETRIC_SUCCESS ->
+                Plan(bio or credential, negativeButton = false)
+
+            manager.canAuthenticate(bio) == BiometricManager.BIOMETRIC_SUCCESS ->
+                Plan(bio, negativeButton = true)
+
+            manager.canAuthenticate(credential) == BiometricManager.BIOMETRIC_SUCCESS ->
+                Plan(credential, negativeButton = false)
+
+            else -> null
+        }
+    }
+
+    private fun createDecryptCipher(wrappedB64: String): Cipher? = runCatching {
+        val wrapped = KeyStoreManager.fromB64(wrappedB64)
+        val iv = wrapped.copyOfRange(0, 12)
+        Cipher.getInstance("AES/GCM/NoPadding").apply {
+            init(
                 Cipher.DECRYPT_MODE,
                 KeyStoreManager.getOrCreateMasterKey(),
                 GCMParameterSpec(128, iv)
             )
-            cipher
-        } catch (e: Exception) {
-            null
         }
-    }
+    }.getOrNull()
 
-    private fun decryptBlob(cipher: Cipher): ByteArray? {
-        val wrappedB64 = SecurePrefs.getWrappedMasterKey(activity) ?: return null
+    private fun decryptBlob(cipher: Cipher, wrappedB64: String): ByteArray? = runCatching {
         val blob = KeyStoreManager.fromB64(wrappedB64)
-        return try {
-            cipher.doFinal(blob.copyOfRange(12, blob.size))
-        } catch (e: Exception) {
-            null
-        }
-    }
+        cipher.doFinal(blob.copyOfRange(12, blob.size))
+    }.getOrNull()
 
     fun shutdown() {
+        prompt?.cancelAuthentication()
         prompt = null
-    }
-
-    companion object {
-        private const val ALLOWED =
-            BiometricManager.Authenticators.BIOMETRIC_WEAK or
-                BiometricManager.Authenticators.DEVICE_CREDENTIAL
     }
 }

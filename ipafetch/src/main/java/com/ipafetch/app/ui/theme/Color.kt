@@ -183,7 +183,9 @@ data class AppColors(
     val knobOff: Color,
     val glassTop: Color,
     val glassBottom: Color,
-    val glassBorder: Color
+    val glassBorder: Color,
+    val glassRow: Color,
+    val glassSheen: Color
 ) {
     companion object {
         fun of(
@@ -221,7 +223,9 @@ data class AppColors(
                 knobOff = lerp(row, scheme.onSurfaceVariant, 0.45f),
                 glassTop = scheme.surface.copy(alpha = if (dark) 0.72f else 0.76f),
                 glassBottom = scheme.surface.copy(alpha = if (dark) 0.58f else 0.62f),
-                glassBorder = scheme.onSurface.copy(alpha = if (dark) 0.14f else 0.10f)
+                glassBorder = scheme.onSurface.copy(alpha = if (dark) 0.14f else 0.10f),
+                glassRow = row.copy(alpha = if (dark) 0.74f else 0.66f),
+                glassSheen = if (dark) Color.White.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.28f)
             )
         }
     }

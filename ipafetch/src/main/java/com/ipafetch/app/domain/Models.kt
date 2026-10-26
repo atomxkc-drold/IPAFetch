@@ -46,6 +46,9 @@ data class VaultEntry(
     val generateUrl: String = "",
     val docsUrl: String = "",
     val usage: String = "",
+    val usedBy: String = "",
+    val variant: String = "",
+    val permissions: List<PermissionGrant> = emptyList(),
     val category: String = EntryCategories.OTHER,
     val tags: List<String> = emptyList(),
     val environment: String = "",
@@ -73,6 +76,9 @@ data class VaultEntry(
 
     fun isExpired(now: Long = System.currentTimeMillis()): Boolean =
         expiresAt != null && expiresAt < now
+
+    fun permissionAccess(name: String): String =
+        permissions.firstOrNull { it.name == name }?.access ?: PermissionAccess.OFF
 
     fun expiresSoon(now: Long = System.currentTimeMillis()): Boolean {
         val e = expiresAt ?: return false

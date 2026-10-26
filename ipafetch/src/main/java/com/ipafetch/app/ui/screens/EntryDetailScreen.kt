@@ -57,6 +57,7 @@ import com.ipafetch.app.ui.components.PrimaryButton
 import com.ipafetch.app.ui.components.RoundIconButton
 import com.ipafetch.app.ui.components.SettingsRow
 import com.ipafetch.app.ui.components.TagPill
+import com.ipafetch.app.ui.screens.PermissionSummary
 import com.ipafetch.app.ui.theme.IpafetchTheme
 import com.ipafetch.app.ui.theme.rowShape
 import java.text.SimpleDateFormat
@@ -121,7 +122,7 @@ fun EntryDetailScreen(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        listOfNotNull(brand?.name, type.label, entry.category.takeIf { it.isNotBlank() })
+                        listOfNotNull(brand?.name, type.label, entry.variant.takeIf { it.isNotBlank() }, entry.category.takeIf { it.isNotBlank() })
                             .joinToString(" · "),
                         color = colors.textSecondary,
                         fontSize = 13.sp
@@ -174,9 +175,25 @@ fun EntryDetailScreen(
                 supporting = if (entry.usage.isBlank()) "Edit this entry to describe how the key is used." else null
             )
 
+            if (entry.permissions.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                SectionTitle("Permissions · ${entry.permissions.size}")
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(rowShape(IpafetchTheme.settings.cornerScale))
+                        .background(colors.row)
+                        .padding(14.dp)
+                ) {
+                    PermissionSummary(brandId = entry.brandId, grants = entry.permissions)
+                }
+            }
+
             Spacer(Modifier.height(16.dp))
             SectionTitle("Details")
             MetaRow("Account", entry.account.ifBlank { "—" })
+            Spacer(Modifier.height(8.dp))
+            MetaRow("Used by", entry.usedBy.ifBlank { "Not set" })
             Spacer(Modifier.height(8.dp))
             MetaRow("Environment", entry.environment.ifBlank { "Not set" })
             Spacer(Modifier.height(8.dp))

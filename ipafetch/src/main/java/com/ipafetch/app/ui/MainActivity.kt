@@ -47,8 +47,11 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.ipafetch.app.crypto.ExportManager
 import com.ipafetch.app.data.AppSettings
+import com.ipafetch.app.data.SecurePrefs
 import com.ipafetch.app.domain.VaultEntry
 import com.ipafetch.app.ui.SetupScreen
 import com.ipafetch.app.ui.UnlockScreen
@@ -101,12 +104,14 @@ class MainActivity : FragmentActivity() {
         val next = BiometricGate(
             activity = this,
             onUnlocked = { key -> viewModel.unlockWithBiometricKey(key) },
-            onFailed = { message -> toast(message) },
-            onUnavailable = { message -> toast(message) }
+            onError = { message ->
+                biometricPrompted = false
+                toast(message)
+            }
         )
         gate?.shutdown()
         gate = next
-        if (next.canAuthenticate()) next.prompt() else toast("Set up a screen lock to use biometrics")
+        next.authenticate()
     }
 
     private fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
@@ -148,6 +153,9 @@ class MainActivity : FragmentActivity() {
 
     override fun onStop() {
         backgroundedAt = SystemClock.elapsedRealtime()
+        gate?.shutdown()
+        gate = null
+        biometricPrompted = false
         if (viewModel.settings.value.autoLockSeconds == 0) viewModel.lock()
         super.onStop()
     }
@@ -202,12 +210,20 @@ class MainActivity : FragmentActivity() {
             )
 
             VaultViewModel.LockState.LOCKED -> {
-                LaunchedEffect(settings.biometric) {
-                    if (settings.biometric) onRequestBiometric()
+                val biometricReady = settings.biometric &&
+                    remember(lockState) { SecurePrefs.getWrappedMasterKey(this@MainActivity) != null }
+                LaunchedEffect(biometricReady) {
+                    if (biometricReady) onRequestBiometric()
+                }
+                LifecycleEventEffect(Lifecycle.Event.ON_START) {
+                    if (biometricReady) onRequestBiometric()
                 }
                 UnlockScreen(
                     error = unlockError,
-                    biometricAvailable = settings.biometric,
+                    biometricAvailable = biometricReady,
+                    biometricNotice = if (settings.biometric && !biometricReady) {
+                        "Unlock with your master password once to enable biometrics."
+                    } else null,
                     onSubmitPassword = { password ->
                         unlockError = viewModel.unlockWithPassword(password)
                     },
@@ -276,6 +292,7 @@ class MainActivity : FragmentActivity() {
                     is Screen.Add -> AddEditScreen(
                         existing = null,
                         initialBrandId = current.brandId,
+                        knownTags = settings.knownTags,
                         onSave = { entry, secret ->
                             viewModel.saveEntry(entry, secret)
                             screen = Screen.Vault
@@ -291,6 +308,7 @@ class MainActivity : FragmentActivity() {
                         } else {
                             AddEditScreen(
                                 existing = entry,
+                                knownTags = settings.knownTags,
                                 onSave = { updated, secret ->
                                     val saved = viewModel.saveEntry(updated, secret)
                                     screen = saved?.let { Screen.Detail(it.id) } ?: Screen.Vault

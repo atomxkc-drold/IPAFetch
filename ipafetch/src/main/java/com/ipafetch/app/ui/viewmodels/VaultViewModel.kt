@@ -85,14 +85,26 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
             AuditLogger.log(appContext, "unlock_failed")
             return "Incorrect master password"
         }
+        healWrappedKey(key)
         attachSession(key)
         return null
+    }
+
+    /**
+     * Older vaults (or a failed Keystore wrap at setup) have no biometric blob.
+     * Re-wrap now that we hold the derived key again, so biometrics starts
+     * working on the next launch instead of failing with a cipher error.
+     */
+    private fun healWrappedKey(key: ByteArray) {
+        if (SecurePrefs.getWrappedMasterKey(appContext) != null) return
+        runCatching { SecurePrefs.saveWrappedMasterKey(appContext, KeyStoreManager.wrapMasterKey(key)) }
     }
 
     fun unlockWithBiometricKey(key: ByteArray) {
         if (SecurePrefs.getVerifier(appContext) == null) {
             runCatching { SecurePrefs.saveVerifier(appContext, PasswordVerifier.create(key)) }
         }
+        healWrappedKey(key)
         attachSession(key)
     }
 
@@ -137,6 +149,12 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
         }
         val saved = r.upsert(entry.copy(secret = secretBlob))
         AuditLogger.log(appContext, if (entry.id == 0L) "entry_created" else "entry_updated", saved.title)
+        // Remember tag vocabulary so future entries can reuse it in one tap.
+        if (saved.tags.isNotEmpty()) {
+            settingsRepo.update { current ->
+                current.copy(knownTags = (saved.tags + current.knownTags).distinct().take(48))
+            }
+        }
         return saved
     }
 
