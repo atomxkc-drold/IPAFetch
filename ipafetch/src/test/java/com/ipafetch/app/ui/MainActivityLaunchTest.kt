@@ -3,6 +3,7 @@ package com.ipafetch.app.ui
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
+import com.ipafetch.app.MainActivity
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
@@ -19,6 +20,8 @@ class MainActivityLaunchTest {
 
     @Test
     fun firstLaunchComposesTheSetupScreen() {
+        // Guards the manifest <-> source package wiring: if the declared launcher
+        // activity does not exist, this test fails before the APK ships.
         val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
         val activity = controller.get()
         assertNotNull(activity)
