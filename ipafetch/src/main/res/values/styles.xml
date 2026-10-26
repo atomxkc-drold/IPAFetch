@@ -1,4 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.ApiVault" parent="Theme.Material3.DayNight.NoActionBar"/>
+    <style name="Theme.ApiVault" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- The app paints its own gradient edge-to-edge, so both bars stay
+             transparent and the icon colour is flipped at runtime in Compose. -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:enforceStatusBarContrast">false</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
 </resources>

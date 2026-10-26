@@ -2,6 +2,7 @@ package com.ipafetch.app
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.view.WindowManager
@@ -74,10 +75,13 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        makeSystemBarsTransparent()
 
         setContent {
             val settings by viewModel.settings.collectAsStateWithLifecycle()
+            LaunchedEffect(settings.allowScreenshots) {
+                applyScreenSecurity(settings.allowScreenshots)
+            }
             IpafetchTheme(settings) {
                 val lockState by viewModel.lockState.collectAsStateWithLifecycle()
                 AppRoot(
@@ -106,6 +110,27 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+
+    /** Bars stay transparent so the app gradient runs edge to edge. */
+    private fun makeSystemBarsTransparent() {
+        @Suppress("DEPRECATION")
+        run {
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            window.navigationBarColor = android.graphics.Color.TRANSPARENT
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isStatusBarContrastEnforced = false
+            window.isNavigationBarContrastEnforced = false
+        }
+    }
+
+    private fun applyScreenSecurity(allowScreenshots: Boolean) {
+        if (allowScreenshots) {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
 
     private fun openExternally(url: String) {
         runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }

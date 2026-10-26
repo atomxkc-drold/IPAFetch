@@ -7,11 +7,14 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Density
+import androidx.core.view.WindowCompat
 import com.ipafetch.app.data.AppSettings
 
 val LocalAppColors = staticCompositionLocalOf<AppColors> {
@@ -71,6 +74,17 @@ fun IpafetchTheme(
 
     val typography = remember(settings.font) { appTypography(AppFont.from(settings.font)) }
 
+    // Keep the transparent bars readable: dark icons on light surfaces and back.
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = view.context.findActivity()?.window ?: return@SideEffect
+            val controller = WindowCompat.getInsetsController(window, view)
+            controller.isAppearanceLightStatusBars = !dark
+            controller.isAppearanceLightNavigationBars = !dark
+        }
+    }
+
     CompositionLocalProvider(
         LocalDensity provides density,
         LocalAppColors provides colors,
@@ -83,4 +97,11 @@ fun IpafetchTheme(
             content = content
         )
     }
+}
+
+/** Walks ContextWrappers until the hosting Activity is found. */
+private tailrec fun android.content.Context.findActivity(): android.app.Activity? = when (this) {
+    is android.app.Activity -> this
+    is android.content.ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

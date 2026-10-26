@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -63,6 +64,7 @@ fun CategoriesScreen(
         Box(Modifier.fillMaxSize()) {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(1),
+                modifier = Modifier.fillMaxSize().statusBarsPadding(),
                 contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 130.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {

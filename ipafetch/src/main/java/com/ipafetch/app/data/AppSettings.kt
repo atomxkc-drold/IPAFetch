@@ -33,6 +33,7 @@ data class AppSettings(
     val biometric: Boolean = true,
     val autoLockSeconds: Int = 60,
     val clipboardClear: Boolean = true,
+    val allowScreenshots: Boolean = false,
     val compactRows: Boolean = false
 ) {
     val isDarkPreferred: Boolean get() = themeMode == "dark"

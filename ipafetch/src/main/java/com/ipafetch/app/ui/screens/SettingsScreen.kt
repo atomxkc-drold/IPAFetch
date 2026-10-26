@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -109,6 +110,7 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
+                    .statusBarsPadding()
                     .padding(bottom = 126.dp)
             ) {
                 ScreenHeader(
@@ -435,6 +437,16 @@ fun SettingsScreen(
                                 ExpressiveSwitch(
                                     checked = settings.clipboardClear,
                                     onCheckedChange = { value -> onUpdate { it.copy(clipboardClear = value) } }
+                                )
+                            }
+                        )
+                        SettingsRow(
+                            title = "Allow screenshots",
+                            supporting = "On exposes the vault to screen capture and recordings",
+                            trailing = {
+                                ExpressiveSwitch(
+                                    checked = settings.allowScreenshots,
+                                    onCheckedChange = { value -> onUpdate { it.copy(allowScreenshots = value) } }
                                 )
                             }
                         )
