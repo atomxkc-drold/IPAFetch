@@ -239,3 +239,6 @@ object TypeColors {
     val link = Color(0xFFB26A00)
     val note = Color(0xFF5A6270)
 }
+
+/** Bright gold used for favourite stars. */
+val FavoriteGold = Color(0xFFFFC02E)

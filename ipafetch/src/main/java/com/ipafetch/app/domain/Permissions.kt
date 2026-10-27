@@ -16,9 +16,9 @@ object PermissionAccess {
 }
 
 /**
- * Known scopes per provider. Fine-grained GitHub tokens expose a fixed list
- * where some permissions only ever offer read — those are marked [readOnly] and
- * the editor refuses to promote them to write, with the reason shown inline.
+ * Known scopes per provider. Some are read-only by the provider's own design —
+ * those are marked [readOnly] and the editor refuses to promote them, with the
+ * reason shown to the user.
  */
 object PermissionCatalog {
 
@@ -56,7 +56,60 @@ object PermissionCatalog {
         Def("Notifications", group = "Account")
     )
 
-    /** Non-GitHub providers get a small generic scope vocabulary. */
+    val STRIPE: List<Def> = listOf(
+        Def("Charges", group = "Payments"),
+        Def("Customers", group = "Payments"),
+        Def("Payment links", group = "Payments"),
+        Def("Invoices", group = "Billing"),
+        Def("Subscriptions", group = "Billing"),
+        Def("Payouts", group = "Money"),
+        Def("Balance", readOnly = true, group = "Money"),
+        Def("Webhooks", group = "Platform"),
+        Def("Account", readOnly = true, group = "Platform")
+    )
+
+    val SLACK: List<Def> = listOf(
+        Def("channels:read", readOnly = true, group = "Read"),
+        Def("users:read", readOnly = true, group = "Read"),
+        Def("files:read", readOnly = true, group = "Read"),
+        Def("chat:write", group = "Write"),
+        Def("files:write", group = "Write"),
+        Def("reactions:write", group = "Write"),
+        Def("incoming-webhook", readOnly = true, group = "App"),
+        Def("commands", group = "App")
+    )
+
+    val SPOTIFY: List<Def> = listOf(
+        Def("user-read-email", readOnly = true, group = "Profile"),
+        Def("user-read-private", readOnly = true, group = "Profile"),
+        Def("playlist-read-private", readOnly = true, group = "Library"),
+        Def("user-library-read", readOnly = true, group = "Library"),
+        Def("user-library-modify", group = "Library"),
+        Def("playlist-modify-public", group = "Playlists"),
+        Def("playlist-modify-private", group = "Playlists"),
+        Def("streaming", readOnly = true, group = "Playback"),
+        Def("user-read-playback-state", readOnly = true, group = "Playback"),
+        Def("user-modify-playback-state", group = "Playback")
+    )
+
+    val DISCORD: List<Def> = listOf(
+        Def("bot", readOnly = true, group = "Gateway"),
+        Def("applications.commands", readOnly = true, group = "Gateway"),
+        Def("guilds", readOnly = true, group = "Guild"),
+        Def("guilds.members.read", readOnly = true, group = "Guild"),
+        Def("messages.read", readOnly = true, group = "Guild"),
+        Def("webhook.incoming", group = "Webhook")
+    )
+
+    val AWS: List<Def> = listOf(
+        Def("S3 read", readOnly = true, group = "Storage"),
+        Def("S3 write", group = "Storage"),
+        Def("IAM read", readOnly = true, group = "Identity"),
+        Def("IAM write", group = "Identity"),
+        Def("Lambda invoke", group = "Compute"),
+        Def("CloudWatch read", readOnly = true, group = "Observability")
+    )
+
     val GENERIC: List<Def> = listOf(
         Def("Read", group = "Access"),
         Def("Write", group = "Access"),
@@ -68,31 +121,32 @@ object PermissionCatalog {
         Def("Users", group = "Data")
     )
 
-    fun forBrand(brandId: String): List<Def> =
-        if (brandId == "github") GITHUB else GENERIC
+    private val byBrand: Map<String, List<Def>> = mapOf(
+        "github" to GITHUB,
+        "stripe" to STRIPE,
+        "slack" to SLACK,
+        "spotify" to SPOTIFY,
+        "discord" to DISCORD,
+        "aws" to AWS
+    )
+
+    fun forBrand(brandId: String): List<Def> = byBrand[brandId] ?: GENERIC
 
     fun def(brandId: String, name: String): Def? =
         forBrand(brandId).firstOrNull { it.name == name }
 
-    /** Explains why tapping write does nothing. */
+    /** Explains why write is unavailable for a scope. */
     fun readOnlyReason(brandId: String, name: String): String? {
         val d = def(brandId, name) ?: return null
         if (!d.readOnly) return null
-        return if (brandId == "github") {
-            "GitHub only issues read access for ${d.name}, so write can't be granted."
-        } else {
-            "${d.name} is read-only for this provider."
+        return when (brandId) {
+            "github" -> "GitHub only issues read access for ${d.name}, so write can't be granted."
+            "spotify" -> "Spotify exposes ${d.name} as read-only."
+            "slack" -> "Slack exposes ${d.name} as a read-only scope."
+            else -> "${d.name} is read-only for this provider."
         }
     }
 
     fun groups(brandId: String): List<Pair<String, List<Def>>> =
         forBrand(brandId).groupBy { it.group }.toList()
-}
-
-object TokenVariants {
-    /** GitHub token flavours, shown as a segmented control in the editor. */
-    val GITHUB = listOf("Fine-grained", "Classic", "OAuth app")
-
-    fun forBrand(brandId: String): List<String> =
-        if (brandId == "github") GITHUB else emptyList()
 }

@@ -286,6 +286,27 @@ class MainActivity : FragmentActivity() {
                         onExport = { screen = Screen.Export },
                         onImport = { screen = Screen.Import },
                         onReset = { confirmReset = true },
+                        onClearTags = {
+                            viewModel.updateSettings { it.copy(knownTags = emptyList()) }
+                            toast("Tag history cleared")
+                        },
+                        onResetAppearance = {
+                            viewModel.updateSettings {
+                                it.copy(
+                                    accent = com.ipafetch.app.ui.theme.AccentPalette.BLUE.key,
+                                    paletteStyle = com.ipafetch.app.ui.theme.PaletteStyle.TONAL.key,
+                                    surfaceShading = 1.4f,
+                                    gradientBackground = true,
+                                    progressiveBlur = true,
+                                    matchIconColors = true,
+                                    reduceEffects = false,
+                                    cornerScale = 1.5f,
+                                    uiScale = 0.9f,
+                                    font = "system"
+                                )
+                            }
+                            toast("Appearance reset")
+                        },
                         bottomBar = bottomBar
                     )
 
@@ -293,8 +314,8 @@ class MainActivity : FragmentActivity() {
                         existing = null,
                         initialBrandId = current.brandId,
                         knownTags = settings.knownTags,
-                        onSave = { entry, secret ->
-                            viewModel.saveEntry(entry, secret)
+                        onSave = { entry, secret, extras ->
+                            viewModel.saveEntry(entry, secret, extras)
                             screen = Screen.Vault
                             toast("Saved to vault")
                         },
@@ -309,8 +330,9 @@ class MainActivity : FragmentActivity() {
                             AddEditScreen(
                                 existing = entry,
                                 knownTags = settings.knownTags,
-                                onSave = { updated, secret ->
-                                    val saved = viewModel.saveEntry(updated, secret)
+                                existingExtras = remember(entry.id) { viewModel.extrasOf(entry) },
+                                onSave = { updated, secret, extras ->
+                                    val saved = viewModel.saveEntry(updated, secret, extras)
                                     screen = saved?.let { Screen.Detail(it.id) } ?: Screen.Vault
                                     toast("Changes saved")
                                 },
@@ -341,6 +363,16 @@ class MainActivity : FragmentActivity() {
                                     screen = Screen.Vault
                                     toast("Deleted")
                                 },
+                                onRegenerate = {
+                                    val fresh = com.ipafetch.app.crypto.CryptoManager.generateToken()
+                                    viewModel.saveEntry(
+                                        entry.copy(updatedAt = System.currentTimeMillis()),
+                                        fresh,
+                                        null
+                                    )
+                                    toast("New value generated · update it at the provider")
+                                },
+                                extras = remember(entry.id) { viewModel.extrasOf(entry) },
                                 onOpenUrl = { handleOpen(it) }
                             )
                         }

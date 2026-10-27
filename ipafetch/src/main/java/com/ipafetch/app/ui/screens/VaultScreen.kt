@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -21,11 +22,13 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Key
@@ -41,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -57,9 +61,11 @@ import com.ipafetch.app.ui.components.BrandTile
 import com.ipafetch.app.ui.components.ChipRow
 import com.ipafetch.app.ui.components.EmptyState
 import com.ipafetch.app.ui.components.SearchPill
+import com.ipafetch.app.ui.components.RoundIconButton
 import com.ipafetch.app.ui.components.ScreenHeader
 import com.ipafetch.app.ui.components.TagPill
 import com.ipafetch.app.ui.theme.IpafetchTheme
+import com.ipafetch.app.ui.theme.FavoriteGold
 import com.ipafetch.app.ui.theme.rowShape
 import kotlin.math.roundToInt
 
@@ -90,6 +96,13 @@ fun VaultScreen(
         )
 
     val total = entries.size
+    val settings = IpafetchTheme.settings
+    val colors = IpafetchTheme.colors
+    val widthModifier = if (settings.alwaysPhoneLayout) {
+        Modifier.widthIn(max = 560.dp).fillMaxWidth()
+    } else {
+        Modifier.fillMaxWidth()
+    }
     val subtitle = when {
         total == 0 -> "Nothing saved yet"
         total == 1 -> "1 item · encrypted locally"
@@ -98,12 +111,30 @@ fun VaultScreen(
 
     AppBackground(Modifier.fillMaxSize()) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize().statusBarsPadding(),
+            modifier = Modifier
+                .fillMaxHeight()
+                .then(widthModifier)
+                .align(Alignment.TopCenter)
+                .statusBarsPadding(),
             contentPadding = PaddingValues(bottom = 124.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             item {
-                ScreenHeader(title = "Vault", subtitle = subtitle)
+                ScreenHeader(
+                    title = "Vault",
+                    subtitle = subtitle,
+                    trailing = if (settings.buttonsAtTop) {
+                        {
+                            RoundIconButton(
+                                icon = Icons.Rounded.Add,
+                                contentDescription = "New entry",
+                                onClick = onAdd,
+                                tint = colors.onAccent,
+                                background = colors.accent
+                            )
+                        }
+                    } else null
+                )
             }
             item {
                 Column(Modifier.padding(horizontal = 20.dp)) {
@@ -144,9 +175,26 @@ fun VaultScreen(
                 }
             }
         }
+        if (!settings.buttonsAtTop) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 24.dp, bottom = 96.dp)
+            ) {
+                RoundIconButton(
+                    icon = Icons.Rounded.Add,
+                    contentDescription = "New entry",
+                    onClick = onAdd,
+                    tint = colors.onAccent,
+                    background = colors.accent,
+                    size = 56
+                )
+            }
+        }
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .then(widthModifier)
                 .padding(bottom = 18.dp)
         ) { bottomBar() }
     }
@@ -174,6 +222,7 @@ private fun EntryRow(
     val type = EntryType.from(entry.type)
     val shape = rowShape(settings.cornerScale)
     val glass = settings.progressiveBlur && !settings.reduceEffects
+    val brandTint = if (settings.matchIconColors) (brand?.tint ?: colors.accent) else colors.accent
 
     Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         Row(
@@ -196,7 +245,7 @@ private fun EntryRow(
                 .fillMaxWidth()
                 .offset { IntOffset(offset.roundToInt(), 0) }
                 .clip(shape)
-                .background(if (glass) colors.glassRow else colors.row)
+                .background(lerp(if (glass) colors.glassRow else colors.row, brandTint, 0.12f))
                 .then(if (glass) Modifier.border(1.dp, colors.glassSheen, shape) else Modifier)
                 .pointerInput(entry.id, leftAction, rightAction) {
                     detectHorizontalDragGestures(
@@ -237,7 +286,7 @@ private fun EntryRow(
                         Icon(
                             Icons.Rounded.Star,
                             contentDescription = null,
-                            tint = colors.accent,
+                            tint = FavoriteGold,
                             modifier = Modifier.size(13.dp)
                         )
                     }
@@ -262,13 +311,13 @@ private fun EntryRow(
                 TagPill("Expiring", color = colors.accent.copy(alpha = 0.14f))
                 Spacer(Modifier.width(6.dp))
             }
-            CopyButton(onClick = onCopy)
+            CopyButton(onClick = onCopy, tint = brandTint)
         }
     }
 }
 
 @Composable
-private fun CopyButton(onClick: () -> Unit) {
+private fun CopyButton(onClick: () -> Unit, tint: androidx.compose.ui.graphics.Color) {
     val colors = IpafetchTheme.colors
     val highlight = IpafetchTheme.settings.highlightTargets
     Box(
@@ -282,7 +331,7 @@ private fun CopyButton(onClick: () -> Unit) {
         Icon(
             Icons.Rounded.ContentCopy,
             contentDescription = "Copy value",
-            tint = colors.textSecondary,
+            tint = tint,
             modifier = Modifier.size(16.dp)
         )
     }

@@ -32,6 +32,7 @@ import androidx.compose.material.icons.rounded.Gesture
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.RoundedCorner
 import androidx.compose.material.icons.rounded.SettingsBrightness
@@ -52,6 +53,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -72,6 +74,9 @@ import com.ipafetch.app.ui.components.SectionHeader
 import com.ipafetch.app.ui.components.SettingsGroup
 import com.ipafetch.app.ui.components.SettingsRow
 import com.ipafetch.app.ui.theme.AccentPalette
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import com.ipafetch.app.ui.theme.AppFont
 import com.ipafetch.app.ui.theme.IpafetchTheme
 import com.ipafetch.app.ui.theme.PaletteStyle
@@ -90,9 +95,12 @@ fun SettingsScreen(
     onExport: () -> Unit,
     onImport: () -> Unit,
     onReset: () -> Unit,
+    onClearTags: () -> Unit,
+    onResetAppearance: () -> Unit,
     bottomBar: @Composable () -> Unit
 ) {
     val colors = IpafetchTheme.colors
+    val context = LocalContext.current
     val expanded = remember {
         mutableStateMapOf(
             THEMES to true,
@@ -254,14 +262,27 @@ fun SettingsScreen(
                         onToggle = { expanded[APPEARANCE] = !(expanded[APPEARANCE] ?: true) }
                     )
                     SettingsGroup(expanded[APPEARANCE] == true) {
-                        SettingsRow {
-                            DropdownRow(
-                                label = "Language",
-                                value = settings.language,
-                                options = listOf("English", "System default"),
-                                onSelect = { value -> onUpdate { it.copy(language = value) } }
-                            )
-                        }
+                        SettingsRow(
+                            leading = { Icon(Icons.Rounded.TextFields, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
+                            title = "Language",
+                            supporting = "Opens Android's per-app language settings",
+                            trailing = {
+                                Text(settings.language, color = colors.textSecondary, fontSize = 12.sp)
+                            },
+                            onClick = {
+                                val packageUri = Uri.fromParts("package", context.packageName, null)
+                                val opened = runCatching {
+                                    context.startActivity(Intent(Settings.ACTION_APP_LOCALE_SETTINGS).setData(packageUri))
+                                }.isSuccess
+                                if (!opened) {
+                                    runCatching {
+                                        context.startActivity(
+                                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).setData(packageUri)
+                                        )
+                                    }
+                                }
+                            }
+                        )
 
                         SettingsRow(
                             leading = { Icon(Icons.Rounded.TextFields, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
@@ -335,6 +356,11 @@ fun SettingsScreen(
                                     onCheckedChange = { value -> onUpdate { it.copy(highlightTargets = value) } }
                                 )
                             }
+                        )
+                        SettingsRow(
+                            title = "Reset appearance",
+                            supporting = "Restores colours, corners and scale. Entries are kept.",
+                            onClick = onResetAppearance
                         )
                     }
 
@@ -479,6 +505,12 @@ fun SettingsScreen(
                             supporting = "Deletes every entry and the master key",
                             leading = { Icon(Icons.Rounded.SettingsBrightness, null, tint = colors.textSecondary, modifier = Modifier.size(20.dp)) },
                             onClick = onReset
+                        )
+                        SettingsRow(
+                            title = "Clear tag history",
+                            supporting = "${settings.knownTags.size} remembered tags · entries keep theirs",
+                            leading = { Icon(Icons.Rounded.LocalOffer, null, tint = colors.textSecondary, modifier = Modifier.size(20.dp)) },
+                            onClick = onClearTags
                         )
                     }
 

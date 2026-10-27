@@ -51,7 +51,7 @@ import com.ipafetch.app.domain.EntryCategories
 import com.ipafetch.app.domain.EntryType
 import com.ipafetch.app.domain.PermissionCatalog
 import com.ipafetch.app.domain.PermissionGrant
-import com.ipafetch.app.domain.TokenVariants
+import com.ipafetch.app.domain.ServiceProfiles
 import com.ipafetch.app.domain.VaultEntry
 import com.ipafetch.app.ui.brand.Brand
 import com.ipafetch.app.ui.brand.BrandCatalog
@@ -66,6 +66,7 @@ import com.ipafetch.app.ui.components.PrimaryButton
 import com.ipafetch.app.ui.components.RoundIconButton
 import com.ipafetch.app.ui.components.SettingsRow
 import com.ipafetch.app.ui.theme.IpafetchTheme
+import com.ipafetch.app.ui.theme.FavoriteGold
 import com.ipafetch.app.ui.theme.rowShape
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -89,7 +90,8 @@ fun AddEditScreen(
     existing: VaultEntry?,
     initialBrandId: String? = null,
     knownTags: List<String> = emptyList(),
-    onSave: (VaultEntry, String?) -> Unit,
+    existingExtras: Map<String, String> = emptyMap(),
+    onSave: (VaultEntry, String?, Map<String, String>) -> Unit,
     onCancel: () -> Unit,
     onDelete: (() -> Unit)? = null
 ) {
@@ -100,7 +102,8 @@ fun AddEditScreen(
     var variant by remember(existing?.id) {
         mutableStateOf(
             existing?.variant
-                ?: TokenVariants.forBrand(initialBrandId ?: existing?.brandId ?: "").firstOrNull()
+                ?: ServiceProfiles.of(initialBrandId ?: existing?.brandId ?: "", existing?.category ?: EntryCategories.OTHER)
+                    .variants.firstOrNull()
                 ?: ""
         )
     }
@@ -118,6 +121,7 @@ fun AddEditScreen(
     var environment by remember(existing?.id) { mutableStateOf(existing?.environment ?: "") }
     var tags by remember(existing?.id) { mutableStateOf(existing?.tags ?: emptyList()) }
     var permissions by remember(existing?.id) { mutableStateOf(existing?.permissions ?: emptyList()) }
+    var extras by remember(existing?.id) { mutableStateOf(existingExtras) }
     var expiresAt by remember(existing?.id) { mutableStateOf(existing?.expiresAt) }
     var favorite by remember(existing?.id) { mutableStateOf(existing?.favorite ?: false) }
 
@@ -129,7 +133,9 @@ fun AddEditScreen(
     var query by remember { mutableStateOf("") }
 
     val brands = remember(query) { BrandCatalog.search(query).take(24) }
-    val variants = remember(brandId) { TokenVariants.forBrand(brandId) }
+    val profile = remember(brandId, category) { ServiceProfiles.of(brandId, category) }
+    val variants = profile.variants
+    val extraFields = remember(profile, variant) { profile.fieldsFor(variant) }
     val isNew = existing == null
     val permissionDefs = remember(brandId) { PermissionCatalog.forBrand(brandId) }
     val lockedCount = remember(permissions, brandId) {
@@ -157,7 +163,7 @@ fun AddEditScreen(
                         icon = Icons.Rounded.Star,
                         contentDescription = "Favourite",
                         onClick = { favorite = !favorite },
-                        tint = if (favorite) colors.accent else colors.textSecondary
+                        tint = if (favorite) FavoriteGold else colors.textSecondary
                     )
                 }
             }
@@ -222,7 +228,7 @@ fun AddEditScreen(
                                         if (title.isBlank()) title = brand.name
                                         if (generateUrl.isBlank()) generateUrl = brand.consoleUrl
                                         if (category == EntryCategories.OTHER) category = brand.category
-                                        val nextVariants = TokenVariants.forBrand(brand.id)
+                                        val nextVariants = ServiceProfiles.of(brand.id, brand.category).variants
                                         variant = nextVariants.firstOrNull() ?: ""
                                         pickerOpen = false
                                     }
@@ -237,7 +243,7 @@ fun AddEditScreen(
                 item {
                     Column {
                         Text(
-                            "GitHub token type",
+                            "Token type · ${BrandCatalog.by(brandId)?.name ?: "custom"}",
                             color = colors.textSecondary,
                             fontSize = 12.sp,
                             modifier = Modifier.padding(start = 6.dp, bottom = 8.dp)
@@ -255,18 +261,27 @@ fun AddEditScreen(
                         )
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            when (variant) {
-                                "Fine-grained" -> "Scoped to one owner, per-permission, expires by default."
-                                "Classic" -> "Account-wide scopes. Prefer fine-grained when you can."
-                                "OAuth app" -> "Client ID plus client secret, with a callback URL."
-                                else -> "Choose how this token is issued."
-                            },
+                            profile.hintFor(variant) ?: "Choose how this credential is issued.",
                             color = colors.textSecondary,
                             fontSize = 11.sp,
                             lineHeight = 15.sp,
                             modifier = Modifier.padding(start = 6.dp)
                         )
                     }
+                }
+            }
+
+            if (extraFields.isNotEmpty()) {
+                items(extraFields, key = { it.key }) { field ->
+                    ExpressiveTextField(
+                        value = extras[field.key] ?: "",
+                        onValueChange = { value ->
+                            extras = if (value.isBlank()) extras - field.key else extras + (field.key to value)
+                        },
+                        label = field.label,
+                        placeholder = field.placeholder,
+                        isSecret = field.secret
+                    )
                 }
             }
 
@@ -498,7 +513,7 @@ fun AddEditScreen(
                                 favorite = favorite,
                                 updatedAt = System.currentTimeMillis()
                             )
-                            onSave(entry, secret.takeIf { it.isNotBlank() })
+                            onSave(entry, secret.takeIf { it.isNotBlank() }, extras.filterValues { it.isNotBlank() })
                         }
                     }
                 )

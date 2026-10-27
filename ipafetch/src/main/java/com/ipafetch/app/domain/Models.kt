@@ -20,6 +20,7 @@ enum class EntryType(val key: String, val label: String, val hint: String) {
 
 object EntryCategories {
     const val AI = "AI & ML"
+    const val MUSIC = "Music"
     const val CLOUD = "Cloud"
     const val DEV = "Developer"
     const val PAYMENTS = "Payments"
@@ -28,7 +29,7 @@ object EntryCategories {
     const val DESIGN = "Design"
     const val OTHER = "Other"
 
-    val ALL = listOf(AI, CLOUD, DEV, PAYMENTS, COMMS, DATA, DESIGN, OTHER)
+    val ALL = listOf(AI, MUSIC, CLOUD, DEV, PAYMENTS, COMMS, DATA, DESIGN, OTHER)
 }
 
 /**
@@ -52,6 +53,7 @@ data class VaultEntry(
     val category: String = EntryCategories.OTHER,
     val tags: List<String> = emptyList(),
     val environment: String = "",
+    val extrasBlob: String = "",
     val expiresAt: Long? = null,
     val favorite: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),

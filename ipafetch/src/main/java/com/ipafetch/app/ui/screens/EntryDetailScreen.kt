@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.OpenInNew
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material.icons.rounded.Visibility
@@ -43,12 +44,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ipafetch.app.domain.EntryType
+import com.ipafetch.app.domain.ServiceProfiles
 import com.ipafetch.app.domain.VaultEntry
 import com.ipafetch.app.ui.brand.BrandCatalog
 import com.ipafetch.app.ui.components.AppBackground
@@ -58,6 +62,7 @@ import com.ipafetch.app.ui.components.RoundIconButton
 import com.ipafetch.app.ui.components.SettingsRow
 import com.ipafetch.app.ui.components.TagPill
 import com.ipafetch.app.ui.screens.PermissionSummary
+import com.ipafetch.app.ui.theme.FavoriteGold
 import com.ipafetch.app.ui.theme.IpafetchTheme
 import com.ipafetch.app.ui.theme.rowShape
 import java.text.SimpleDateFormat
@@ -75,13 +80,16 @@ fun EntryDetailScreen(
     onCopy: () -> Unit,
     onToggleFavorite: () -> Unit,
     onDelete: () -> Unit,
-    onOpenUrl: (String) -> Unit
+    onRegenerate: () -> Unit,
+    onOpenUrl: (String) -> Unit,
+    extras: Map<String, String> = emptyMap()
 ) {
     val colors = IpafetchTheme.colors
     val type = EntryType.from(entry.type)
     val brand = BrandCatalog.by(entry.brandId)
     var revealed by remember(entry.id) { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var confirmRegenerate by remember { mutableStateOf(false) }
     val plaintext = remember(entry.id, entry.secret) { secretPlain() }
 
     AppBackground(Modifier.fillMaxSize()) {
@@ -100,14 +108,54 @@ fun EntryDetailScreen(
                     icon = if (entry.favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
                     contentDescription = "Favourite",
                     onClick = onToggleFavorite,
-                    tint = colors.accent
+                    tint = if (entry.favorite) FavoriteGold else colors.textSecondary
                 )
                 RoundIconButton(Icons.Rounded.Edit, "Edit entry", onEdit, tint = colors.accent)
                 RoundIconButton(Icons.Rounded.Delete, "Delete entry", { confirmDelete = true })
             }
 
+            if (entry.typeValue != EntryType.LINK && entry.typeValue != EntryType.JSON && entry.typeValue != EntryType.NOTE) {
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(Color(0xFF1F1F22))
+                        .clickable { confirmRegenerate = true }
+                        .padding(horizontal = 18.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Rounded.Refresh,
+                        contentDescription = null,
+                        tint = Color(0xFFFF5252),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "Regenerate",
+                        color = Color(0xFFFF5252),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
             Spacer(Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(rowShape(IpafetchTheme.settings.cornerScale))
+                    .background(
+                        lerp(
+                            colors.row,
+                            if (IpafetchTheme.settings.matchIconColors) (brand?.tint ?: colors.accent)
+                            else colors.accent,
+                            0.14f
+                        )
+                    )
+                    .padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 BrandTile(entry.brandId, entry.title, size = 60.dp)
                 Spacer(Modifier.width(16.dp))
                 Column(Modifier.weight(1f)) {
@@ -189,6 +237,20 @@ fun EntryDetailScreen(
                 }
             }
 
+            if (extras.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                SectionTitle("${brand?.name ?: "Provider"} fields")
+                val fields = ServiceProfiles.of(entry.brandId, entry.category).fieldsFor(entry.variant)
+                extras.forEach { (key, value) ->
+                    val def = fields.firstOrNull { it.key == key }
+                    MetaRow(
+                        label = def?.label ?: key,
+                        value = if (def?.secret == true) "••••••••" else value
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+
             Spacer(Modifier.height(16.dp))
             SectionTitle("Details")
             MetaRow("Account", entry.account.ifBlank { "—" })
@@ -213,6 +275,30 @@ fun EntryDetailScreen(
             Spacer(Modifier.height(20.dp))
             PrimaryButton(label = "Edit entry", onClick = onEdit)
         }
+    }
+
+    if (confirmRegenerate) {
+        AlertDialog(
+            onDismissRequest = { confirmRegenerate = false },
+            title = { Text("Generate a new value?") },
+            text = {
+                Text(
+                    "This replaces the stored ${type.label.lowercase()} with a fresh random token. " +
+                        "The provider still holds the old one until you update it there."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmRegenerate = false
+                    onRegenerate()
+                    revealed = true
+                }) { Text("Regenerate") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRegenerate = false }) { Text("Cancel") }
+            },
+            containerColor = colors.rowStrong
+        )
     }
 
     if (confirmDelete) {

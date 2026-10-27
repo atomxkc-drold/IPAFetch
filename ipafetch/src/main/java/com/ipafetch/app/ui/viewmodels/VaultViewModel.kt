@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -30,6 +31,7 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
 
     private val appContext = app.applicationContext
     private val settingsRepo = SettingsRepository.get(appContext)
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     val settings: StateFlow<AppSettings> = settingsRepo.settings
 
@@ -141,13 +143,30 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
 
     fun entryById(id: Long): VaultEntry? = repo()?.getById(id)
 
-    fun saveEntry(entry: VaultEntry, plaintextSecret: String?): VaultEntry? {
+    /** Decrypts the provider-specific extra fields for an entry. */
+    fun extrasOf(entry: VaultEntry): Map<String, String> {
+        if (entry.extrasBlob.isBlank()) return emptyMap()
+        val r = repo() ?: return emptyMap()
+        val plain = r.decryptValue(entry.extrasBlob).ifBlank { return emptyMap() }
+        return runCatching { json.decodeFromString<Map<String, String>>(plain) }.getOrDefault(emptyMap())
+    }
+
+    fun saveEntry(
+        entry: VaultEntry,
+        plaintextSecret: String?,
+        extras: Map<String, String>? = null
+    ): VaultEntry? {
         val r = repo() ?: return null
         val secretBlob = when {
             !plaintextSecret.isNullOrBlank() -> r.encryptValue(plaintextSecret)
             else -> entry.secret
         }
-        val saved = r.upsert(entry.copy(secret = secretBlob))
+        val extrasBlob = when {
+            extras == null -> entry.extrasBlob
+            extras.isEmpty() -> ""
+            else -> r.encryptValue(json.encodeToString(extras))
+        }
+        val saved = r.upsert(entry.copy(secret = secretBlob, extrasBlob = extrasBlob))
         AuditLogger.log(appContext, if (entry.id == 0L) "entry_created" else "entry_updated", saved.title)
         // Remember tag vocabulary so future entries can reuse it in one tap.
         if (saved.tags.isNotEmpty()) {
