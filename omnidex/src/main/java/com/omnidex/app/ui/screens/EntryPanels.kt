@@ -203,19 +203,19 @@ fun TypePillRow(
 }
 
 private fun typeIcon(type: EntryType) = when (type) {
-    EntryType.TOKEN -> Key
-    EntryType.API -> Code
-    EntryType.JSON -> Code
-    EntryType.LINK -> Link
-    EntryType.SECRET -> Key
-    EntryType.TEXT -> Create
-    EntryType.MODULE -> LocalOffer
-    EntryType.ADB -> PhoneAndroid
-    EntryType.SSH -> Link
-    EntryType.COLOR -> FormatSize
-    EntryType.NUMBER -> FormatSize
-    EntryType.NOTE -> ContentCopy
-    else -> Info
+    EntryType.TOKEN -> Icons.Rounded.Key
+    EntryType.API -> Icons.Rounded.Code
+    EntryType.JSON -> Icons.Rounded.Code
+    EntryType.LINK -> Icons.Rounded.Link
+    EntryType.SECRET -> Icons.Rounded.Key
+    EntryType.TEXT -> Icons.Default.Create
+    EntryType.MODULE -> Icons.Rounded.LocalOffer
+    EntryType.ADB -> Icons.Rounded.PhoneAndroid
+    EntryType.SSH -> Icons.Rounded.Link
+    EntryType.COLOR -> Icons.Default.FormatSize
+    EntryType.NUMBER -> Icons.Default.FormatSize
+    EntryType.NOTE -> Icons.Rounded.ContentCopy
+    else -> Icons.Default.Info
 }
 
 /**
