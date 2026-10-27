@@ -22,13 +22,7 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Code
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Key
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.LocalOffer
-import androidx.compose.material.icons.rounded.PhoneAndroid
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -127,7 +121,7 @@ fun AppPickerSheet(
                         }
                         if (isSelected) {
                             Icon(
-                                Check,
+                                Icons.Rounded.Check,
                                 contentDescription = "Selected",
                                 tint = colors.accent,
                                 modifier = Modifier.size(18.dp)
@@ -197,14 +191,14 @@ private fun typeIcon(type: EntryType) = when (type) {
     EntryType.JSON -> Icons.Rounded.Code
     EntryType.LINK -> Icons.Rounded.Link
     EntryType.SECRET -> Icons.Rounded.Key
-    EntryType.TEXT -> Icons.Filled.Edit
+    EntryType.TEXT -> Icons.Rounded.Create
     EntryType.MODULE -> Icons.Rounded.LocalOffer
     EntryType.ADB -> Icons.Rounded.PhoneAndroid
     EntryType.SSH -> Icons.Rounded.Link
-    EntryType.COLOR -> Icons.Filled.FormatSize
-    EntryType.NUMBER -> Icons.Filled.FormatSize
+    EntryType.COLOR -> Icons.Rounded.Palette
+    EntryType.NUMBER -> Icons.Rounded.FormatSize
     EntryType.NOTE -> Icons.Rounded.ContentCopy
-    else -> Icons.Filled.Info
+    else -> Icons.Rounded.Info
 }
 
 /**
