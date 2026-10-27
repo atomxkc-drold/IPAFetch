@@ -169,7 +169,6 @@ fun TypePillRow(
                     .then(if (isSelected) Modifier.border(1.dp, colors.accent, CircleShape) else Modifier)
                     .clickable { onSelect(entryType) }
                     .padding(horizontal = 12.dp, vertical = 10.dp),
-                contentAlignment = Alignment.CenterVertically
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -200,14 +199,14 @@ private fun typeIcon(type: EntryType) = when (type) {
     EntryType.JSON -> Icons.Rounded.Code
     EntryType.LINK -> Icons.Rounded.Link
     EntryType.SECRET -> Icons.Rounded.Key
-    EntryType.TEXT -> Icons.Rounded.Edit
+    EntryType.TEXT -> Icons.Rounded.Create
     EntryType.MODULE -> Icons.Rounded.LocalOffer
     EntryType.ADB -> Icons.Rounded.PhoneAndroid
     EntryType.SSH -> Icons.Rounded.Link
-    EntryType.COLOR -> Icons.Rounded.ColorLens
-    EntryType.NUMBER -> Icons.Rounded.TextFields
+    EntryType.COLOR -> Icons.Rounded.Palette
+    EntryType.NUMBER -> Icons.Rounded.FormatSize
     EntryType.NOTE -> Icons.Rounded.ContentCopy
-    else -> Icons.Rounded.Help
+    else -> Icons.Rounded.HelpOutline
 }
 
 /**

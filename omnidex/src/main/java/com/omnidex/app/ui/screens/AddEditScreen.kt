@@ -275,7 +275,7 @@ fun AddEditScreen(
                             modifier = Modifier.padding(start = 6.dp, bottom = 8.dp)
                         )
                         Spacer(Modifier.height(4.dp))
-                        typeFields.forEach { field ->
+                        for (field in typeFields) {
                             ExpressiveTextField(
                                 value = extras[field.key] ?: "",
                                 onValueChange = { value ->
@@ -641,13 +641,13 @@ private fun typeIcon(type: EntryType) = when (type) {
     EntryType.JSON -> Icons.Rounded.Code
     EntryType.LINK -> Icons.Rounded.Link
     EntryType.SECRET -> Icons.Rounded.Key
-    EntryType.TEXT -> Icons.Rounded.Edit
+    EntryType.TEXT -> Icons.Rounded.TextFields
     EntryType.MODULE -> Icons.Rounded.LocalOffer
     EntryType.ADB -> Icons.Rounded.PhoneAndroid
     EntryType.SSH -> Icons.Rounded.Link
-    EntryType.COLOR -> Icons.Rounded.ColorLens
+    EntryType.COLOR -> Icons.Rounded.Palette
     EntryType.NOTE -> Icons.Rounded.ContentCopy
-    else -> Icons.Rounded.Help
+    else -> Icons.Rounded.HelpOutline
 }
 
 private fun daysFromNow(days: Int): Long =
