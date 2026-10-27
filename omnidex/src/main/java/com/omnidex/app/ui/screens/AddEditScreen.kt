@@ -70,7 +70,6 @@ import com.omnidex.app.ui.components.BrandTile
 import com.omnidex.app.ui.components.ChipRow
 import com.omnidex.app.ui.components.DropdownRow
 import com.omnidex.app.ui.components.ErrorLine
-import com.omnidex.app.ui.components.ExpressiveSegmented
 import com.omnidex.app.ui.components.ExpressiveTextField
 import com.omnidex.app.ui.components.PrimaryButton
 import com.omnidex.app.ui.components.RoundIconButton
@@ -84,12 +83,6 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-/**
- * Add / edit sheet. Provider drives the console link, category, token variants
- * and the permission vocabulary; tags and permissions open as bottom sheets.
- * Type-specific extras (SSH host/port, ADB package, module repo, etc.) are
- * shown below the provider picker.
- */
 @Composable
 fun AddEditScreen(
     existing: VaultEntry?,
@@ -106,13 +99,6 @@ fun AddEditScreen(
     var showApps by remember { mutableStateOf(false) }
     var title by remember(existing?.id) { mutableStateOf(existing?.title ?: "") }
     var brandId by remember(existing?.id) { mutableStateOf(existing?.brandId ?: initialBrandId ?: "") }
-    val logoLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.GetContent()
-    ) { uri ->
-        if (uri != null) {
-            CustomLogos.save(context, uri)?.let { saved -> brandId = saved }
-        }
-    }
     var type by remember(existing?.id) { mutableStateOf(EntryType.from(existing?.type)) }
     var variant by remember(existing?.id) {
         mutableStateOf(
@@ -153,6 +139,14 @@ fun AddEditScreen(
     val extraFields = remember(profile, variant) { profile.fieldsFor(variant) }
     val isNew = existing == null
 
+    val logoLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            CustomLogos.save(context, uri)?.let { saved -> brandId = saved }
+        }
+    }
+
     AppBackground(Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize().statusBarsPadding(),
@@ -161,7 +155,7 @@ fun AddEditScreen(
         ) {
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    RoundIconButton(ArrowBack, "Back", onCancel)
+                    RoundIconButton(Icons.Rounded.ArrowBack, "Back", onCancel)
                     Spacer(Modifier.width(6.dp))
                     Text(
                         text = if (isNew) "New entry" else "Edit entry",
@@ -171,7 +165,7 @@ fun AddEditScreen(
                         modifier = Modifier.weight(1f)
                     )
                     RoundIconButton(
-                        icon = Star,
+                        icon = Icons.Rounded.Star,
                         contentDescription = "Favourite",
                         onClick = { favorite = !favorite },
                         tint = if (favorite) FavoriteGold else colors.textSecondary
@@ -266,7 +260,6 @@ fun AddEditScreen(
                 }
             }
 
-            // Type-specific fields (SSH host/port, ADB package, module repo, etc.)
             val typeFields = TypeFields.forType(type)
             if (typeFields.isNotEmpty()) {
                 item {
@@ -355,7 +348,7 @@ fun AddEditScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    Refresh,
+                                    Icons.Rounded.Refresh,
                                     contentDescription = "Generate random token",
                                     tint = colors.accent,
                                     modifier = Modifier.size(17.dp)
@@ -475,7 +468,7 @@ fun AddEditScreen(
                         supporting = "Opens a calendar",
                         leading = {
                             Icon(
-                                CalendarMonth,
+                                Icons.Rounded.CalendarMonth,
                                 contentDescription = null,
                                 tint = colors.accent,
                                 modifier = Modifier.size(20.dp)
@@ -497,7 +490,7 @@ fun AddEditScreen(
                     },
                     leading = {
                         Icon(
-                            Lock,
+                            Icons.Filled.Lock,
                             contentDescription = null,
                             tint = colors.accent,
                             modifier = Modifier.size(20.dp)
@@ -513,7 +506,7 @@ fun AddEditScreen(
                     supporting = tags.joinToString(", ").ifBlank { "No tags yet · tap to add" },
                     leading = {
                         Icon(
-                            LocalOffer,
+                            Icons.Rounded.LocalOffer,
                             contentDescription = null,
                             tint = colors.accent,
                             modifier = Modifier.size(20.dp)
@@ -572,7 +565,12 @@ fun AddEditScreen(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Delete, null, tint = colors.textSecondary, modifier = Modifier.size(16.dp))
+                        Icon(
+                            Icons.Rounded.Delete,
+                            contentDescription = null,
+                            tint = colors.textSecondary,
+                            modifier = Modifier.size(16.dp)
+                        )
                         Spacer(Modifier.width(8.dp))
                         Text("Delete entry", color = colors.textSecondary, fontSize = 14.sp)
                     }
@@ -639,19 +637,19 @@ private fun BrandPickerTile(brand: Brand, selected: Boolean, onClick: () -> Unit
 }
 
 private fun typeIcon(type: EntryType) = when (type) {
-    EntryType.TOKEN -> Key
-    EntryType.API -> Code
-    EntryType.JSON -> Code
-    EntryType.LINK -> Link
-    EntryType.SECRET -> Key
-    EntryType.TEXT -> Edit
-    EntryType.MODULE -> LocalOffer
-    EntryType.ADB -> PhoneAndroid
-    EntryType.SSH -> Link
-    EntryType.COLOR -> FormatSize
-    EntryType.NUMBER -> FormatSize
-    EntryType.NOTE -> ContentCopy
-    else -> Info
+    EntryType.TOKEN -> Icons.Rounded.Key
+    EntryType.API -> Icons.Rounded.Code
+    EntryType.JSON -> Icons.Rounded.Code
+    EntryType.LINK -> Icons.Rounded.Link
+    EntryType.SECRET -> Icons.Rounded.Key
+    EntryType.TEXT -> Icons.Filled.Edit
+    EntryType.MODULE -> Icons.Rounded.LocalOffer
+    EntryType.ADB -> Icons.Rounded.PhoneAndroid
+    EntryType.SSH -> Icons.Rounded.Link
+    EntryType.COLOR -> Icons.Filled.FormatSize
+    EntryType.NUMBER -> Icons.Filled.FormatSize
+    EntryType.NOTE -> Icons.Rounded.ContentCopy
+    else -> Icons.Filled.Info
 }
 
 private fun daysFromNow(days: Int): Long =
