@@ -22,13 +22,14 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FormatSize
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.FormatSize
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Link
@@ -160,7 +161,7 @@ fun AddEditScreen(
         ) {
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    RoundIconButton(Icons.Rounded.ArrowBack, "Back", onCancel)
+                    RoundIconButton(ArrowBack, "Back", onCancel)
                     Spacer(Modifier.width(6.dp))
                     Text(
                         text = if (isNew) "New entry" else "Edit entry",
@@ -170,7 +171,7 @@ fun AddEditScreen(
                         modifier = Modifier.weight(1f)
                     )
                     RoundIconButton(
-                        icon = Icons.Rounded.Star,
+                        icon = Star,
                         contentDescription = "Favourite",
                         onClick = { favorite = !favorite },
                         tint = if (favorite) FavoriteGold else colors.textSecondary
@@ -354,7 +355,7 @@ fun AddEditScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    Icons.Rounded.Refresh,
+                                    Refresh,
                                     contentDescription = "Generate random token",
                                     tint = colors.accent,
                                     modifier = Modifier.size(17.dp)
@@ -474,7 +475,7 @@ fun AddEditScreen(
                         supporting = "Opens a calendar",
                         leading = {
                             Icon(
-                                Icons.Rounded.CalendarMonth,
+                                CalendarMonth,
                                 contentDescription = null,
                                 tint = colors.accent,
                                 modifier = Modifier.size(20.dp)
@@ -496,7 +497,7 @@ fun AddEditScreen(
                     },
                     leading = {
                         Icon(
-                            Icons.Filled.Lock,
+                            Lock,
                             contentDescription = null,
                             tint = colors.accent,
                             modifier = Modifier.size(20.dp)
@@ -512,7 +513,7 @@ fun AddEditScreen(
                     supporting = tags.joinToString(", ").ifBlank { "No tags yet · tap to add" },
                     leading = {
                         Icon(
-                            Icons.Rounded.LocalOffer,
+                            LocalOffer,
                             contentDescription = null,
                             tint = colors.accent,
                             modifier = Modifier.size(20.dp)
@@ -571,7 +572,7 @@ fun AddEditScreen(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Rounded.Delete, null, tint = colors.textSecondary, modifier = Modifier.size(16.dp))
+                        Icon(Delete, null, tint = colors.textSecondary, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(8.dp))
                         Text("Delete entry", color = colors.textSecondary, fontSize = 14.sp)
                     }
@@ -638,19 +639,19 @@ private fun BrandPickerTile(brand: Brand, selected: Boolean, onClick: () -> Unit
 }
 
 private fun typeIcon(type: EntryType) = when (type) {
-    EntryType.TOKEN -> Icons.Rounded.Key
-    EntryType.API -> Icons.Rounded.Code
-    EntryType.JSON -> Icons.Rounded.Code
-    EntryType.LINK -> Icons.Rounded.Link
-    EntryType.SECRET -> Icons.Rounded.Key
-    EntryType.TEXT -> Icons.Filled.Edit
-    EntryType.MODULE -> Icons.Rounded.LocalOffer
-    EntryType.ADB -> Icons.Rounded.PhoneAndroid
-    EntryType.SSH -> Icons.Rounded.Link
-    EntryType.COLOR -> Icons.Filled.FormatSize
-    EntryType.NUMBER -> Icons.Filled.FormatSize
-    EntryType.NOTE -> Icons.Rounded.ContentCopy
-    else -> Icons.Filled.Info
+    EntryType.TOKEN -> Key
+    EntryType.API -> Code
+    EntryType.JSON -> Code
+    EntryType.LINK -> Link
+    EntryType.SECRET -> Key
+    EntryType.TEXT -> Edit
+    EntryType.MODULE -> LocalOffer
+    EntryType.ADB -> PhoneAndroid
+    EntryType.SSH -> Link
+    EntryType.COLOR -> FormatSize
+    EntryType.NUMBER -> FormatSize
+    EntryType.NOTE -> ContentCopy
+    else -> Info
 }
 
 private fun daysFromNow(days: Int): Long =

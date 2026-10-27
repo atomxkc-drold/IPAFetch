@@ -21,13 +21,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FormatSize
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Create
-import androidx.compose.material.icons.rounded.FormatSize
-import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.filled.FormatSize
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.LocalOffer
@@ -134,8 +136,8 @@ fun AppPickerSheet(
                         }
                         if (isSelected) {
                             Icon(
-                            Icons.Rounded.Check,
-                            contentDescription = "Selected",
+                                Check,
+                                contentDescription = "Selected",
                                 tint = colors.accent,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -203,19 +205,19 @@ fun TypePillRow(
 }
 
 private fun typeIcon(type: EntryType) = when (type) {
-    EntryType.TOKEN -> Icons.Rounded.Key
-    EntryType.API -> Icons.Rounded.Code
-    EntryType.JSON -> Icons.Rounded.Code
-    EntryType.LINK -> Icons.Rounded.Link
-    EntryType.SECRET -> Icons.Rounded.Key
-    EntryType.TEXT -> Icons.Filled.Edit
-    EntryType.MODULE -> Icons.Rounded.LocalOffer
-    EntryType.ADB -> Icons.Rounded.PhoneAndroid
-    EntryType.SSH -> Icons.Rounded.Link
-    EntryType.COLOR -> Icons.Filled.FormatSize
-    EntryType.NUMBER -> Icons.Filled.FormatSize
-    EntryType.NOTE -> Icons.Rounded.ContentCopy
-    else -> Icons.Filled.Info
+    EntryType.TOKEN -> Key
+    EntryType.API -> Code
+    EntryType.JSON -> Code
+    EntryType.LINK -> Link
+    EntryType.SECRET -> Key
+    EntryType.TEXT -> Edit
+    EntryType.MODULE -> LocalOffer
+    EntryType.ADB -> PhoneAndroid
+    EntryType.SSH -> Link
+    EntryType.COLOR -> FormatSize
+    EntryType.NUMBER -> FormatSize
+    EntryType.NOTE -> ContentCopy
+    else -> Info
 }
 
 /**
