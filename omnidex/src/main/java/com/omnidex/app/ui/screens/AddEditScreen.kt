@@ -34,8 +34,6 @@ import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,6 +56,7 @@ import com.omnidex.app.domain.EntryType
 import com.omnidex.app.domain.PermissionCatalog
 import com.omnidex.app.domain.PermissionGrant
 import com.omnidex.app.domain.ServiceProfiles
+import com.omnidex.app.domain.TypeFields
 import com.omnidex.app.domain.VaultEntry
 import com.omnidex.app.ui.brand.Brand
 import com.omnidex.app.ui.brand.BrandCatalog
@@ -70,7 +69,6 @@ import com.omnidex.app.ui.components.ExpressiveTextField
 import com.omnidex.app.ui.components.PrimaryButton
 import com.omnidex.app.ui.components.RoundIconButton
 import com.omnidex.app.ui.components.SettingsRow
-import com.omnidex.app.domain.TypeFields
 import com.omnidex.app.ui.screens.TypePillRow
 import com.omnidex.app.ui.theme.OmniDexTheme
 import com.omnidex.app.ui.theme.FavoriteGold
@@ -80,17 +78,11 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-private val expiryChoices = listOf(
-    "Never" to 0,
-    "7 days" to 7,
-    "30 days" to 30,
-    "90 days" to 90,
-    "1 year" to 365
-)
-
 /**
  * Add / edit sheet. Provider drives the console link, category, token variants
  * and the permission vocabulary; tags and permissions open as bottom sheets.
+ * Type-specific extras (SSH host/port, ADB package, module repo, etc.) are
+ * shown below the provider picker.
  */
 @Composable
 fun AddEditScreen(
@@ -106,13 +98,15 @@ fun AddEditScreen(
     val context = LocalContext.current
     var usedByApps by remember(existing?.id) { mutableStateOf(existing?.usedByApps ?: emptyList()) }
     var showApps by remember { mutableStateOf(false) }
-    var title by remember(existing?.id) { mutableStateOf(existing?.title ?: "") }
-    var brandId by remember(existing?.id) { mutableStateOf(existing?.brandId ?: initialBrandId ?: "") }
-    val logoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    val logoLauncher = rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri ->
         if (uri != null) {
             CustomLogos.save(context, uri)?.let { saved -> brandId = saved }
         }
     }
+    var title by remember(existing?.id) { mutableStateOf(existing?.title ?: "") }
+    var brandId by remember(existing?.id) { mutableStateOf(existing?.brandId ?: initialBrandId ?: "") }
     var type by remember(existing?.id) { mutableStateOf(EntryType.from(existing?.type)) }
     var variant by remember(existing?.id) {
         mutableStateOf(
@@ -136,9 +130,9 @@ fun AddEditScreen(
     var environment by remember(existing?.id) { mutableStateOf(existing?.environment ?: "") }
     var tags by remember(existing?.id) { mutableStateOf(existing?.tags ?: emptyList()) }
     var permissions by remember(existing?.id) { mutableStateOf(existing?.permissions ?: emptyList()) }
-    var extras by remember(existing?.id) { mutableStateOf(existingExtras) }
     var expiresAt by remember(existing?.id) { mutableStateOf(existing?.expiresAt) }
     var favorite by remember(existing?.id) { mutableStateOf(existing?.favorite ?: false) }
+    var extras by remember(existing?.id) { mutableStateOf(existingExtras) }
 
     var error by remember { mutableStateOf<String?>(null) }
     var pickerOpen by remember { mutableStateOf(existing == null && initialBrandId == null) }
@@ -152,10 +146,6 @@ fun AddEditScreen(
     val variants = profile.variants
     val extraFields = remember(profile, variant) { profile.fieldsFor(variant) }
     val isNew = existing == null
-    val permissionDefs = remember(brandId) { PermissionCatalog.forBrand(brandId) }
-    val lockedCount = remember(permissions, brandId) {
-        permissions.count { PermissionCatalog.def(brandId, it.name)?.readOnly == true }
-    }
 
     AppBackground(Modifier.fillMaxSize()) {
         LazyColumn(
@@ -270,28 +260,6 @@ fun AddEditScreen(
                 }
             }
 
-            if (brandId.isBlank() || CustomLogos.isCustom(brandId)) {
-                item {
-                    SettingsRow(
-                        title = "Provider logo",
-                        supporting = if (CustomLogos.isCustom(brandId)) {
-                            "Custom image uploaded"
-                        } else {
-                            "Upload your own image for this provider"
-                        },
-                        leading = { BrandTile(brandId, title.ifBlank { "Custom" }, size = 30.dp) },
-                        trailing = {
-                            Text(
-                                if (CustomLogos.isCustom(brandId)) "Replace" else "Upload",
-                                color = colors.accent,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        },
-                        onClick = { logoLauncher.launch("image/*") }
-                    )
-                }
-
             // Type-specific fields (SSH host/port, ADB package, module repo, etc.)
             val typeFields = remember(type) { TypeFields.forType(type) }
             if (typeFields.isNotEmpty()) {
@@ -304,7 +272,7 @@ fun AddEditScreen(
                             modifier = Modifier.padding(start = 6.dp, bottom = 8.dp)
                         )
                         Spacer(Modifier.height(4.dp))
-                        items(typeFields, key = { it.key }) { field ->
+                        typeFields.forEach { field ->
                             ExpressiveTextField(
                                 value = extras[field.key] ?: "",
                                 onValueChange = { value ->
@@ -319,6 +287,7 @@ fun AddEditScreen(
                     }
                 }
             }
+
             if (variants.isNotEmpty()) {
                 item {
                     Column {
@@ -348,20 +317,6 @@ fun AddEditScreen(
                             modifier = Modifier.padding(start = 6.dp)
                         )
                     }
-                }
-            }
-
-            if (extraFields.isNotEmpty()) {
-                items(extraFields, key = { it.key }) { field ->
-                    ExpressiveTextField(
-                        value = extras[field.key] ?: "",
-                        onValueChange = { value ->
-                            extras = if (value.isBlank()) extras - field.key else extras + (field.key to value)
-                        },
-                        label = field.label,
-                        placeholder = field.placeholder,
-                        isSecret = field.secret
-                    )
                 }
             }
 
@@ -436,28 +391,12 @@ fun AddEditScreen(
                 )
             }
 
-            if (AiCatalog.hasInfo(brandId)) {
-                item {
-                    AiInfoBlock(
-                        brandId = brandId,
-                        selectedModel = extras["model"],
-                        onSelectModel = { model ->
-                            extras = if (extras["model"] == model) extras - "model" else extras + ("model" to model)
-                        }
-                    )
-                }
-            }
-
             item {
-                SettingsRow(
-                    title = "Used by apps",
-                    supporting = if (usedByApps.isEmpty()) {
-                        "No apps linked · tap to choose installed apps"
-                    } else {
-                        "${usedByApps.size} app${if (usedByApps.size == 1) "" else "s"} linked"
-                    },
-                    leading = { Icon(Icons.Rounded.PhoneAndroid, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
-                    onClick = { showApps = true }
+                ExpressiveTextField(
+                    value = usedBy,
+                    onValueChange = { usedBy = it },
+                    label = "Used by application",
+                    placeholder = "e.g. deploy-worker, iOS app, Zapier"
                 )
             }
 
@@ -546,7 +485,8 @@ fun AddEditScreen(
                     title = "Permissions",
                     supporting = when {
                         permissions.isEmpty() -> "None selected · tap to choose"
-                        lockedCount > 0 -> "${permissions.size} selected · $lockedCount read-only by provider"
+                        permissions.count { PermissionCatalog.def(brandId, it.name)?.readOnly == true } > 0 ->
+                            "${permissions.size} selected · ${permissions.count { PermissionCatalog.def(brandId, it.name)?.readOnly == true }} read-only by provider"
                         else -> "${permissions.size} selected · tap to edit"
                     },
                     leading = {
@@ -598,13 +538,13 @@ fun AddEditScreen(
                                 type = type.key,
                                 account = account.trim(),
                                 usedBy = usedBy.trim(),
+                                usedByApps = usedByApps,
                                 generateUrl = generateUrl.trim(),
                                 docsUrl = docsUrl.trim(),
                                 usage = usage.trim(),
                                 category = category,
                                 tags = tags,
                                 permissions = permissions,
-                                usedByApps = usedByApps,
                                 environment = environment,
                                 expiresAt = expiresAt,
                                 favorite = favorite,
@@ -698,7 +638,13 @@ private fun typeIcon(type: EntryType) = when (type) {
     EntryType.JSON -> Icons.Rounded.Code
     EntryType.LINK -> Icons.Rounded.Link
     EntryType.SECRET -> Icons.Rounded.Key
+    EntryType.TEXT -> Icons.Rounded.TextFields
+    EntryType.MODULE -> Icons.Rounded.LocalOffer
+    EntryType.ADB -> Icons.Rounded.PhoneAndroid
+    EntryType.SSH -> Icons.Rounded.Link
+    EntryType.COLOR -> Icons.Rounded.Colorize
     EntryType.NOTE -> Icons.Rounded.ContentCopy
+    else -> Icons.Rounded.Widgets
 }
 
 private fun daysFromNow(days: Int): Long =
@@ -720,3 +666,11 @@ private fun isValidJson(value: String): Boolean = runCatching {
     if (value.trimStart().startsWith("[")) org.json.JSONArray(value) else org.json.JSONObject(value)
     true
 }.getOrDefault(false)
+
+private val expiryChoices = listOf(
+    "Never" to 0,
+    "7 days" to 7,
+    "30 days" to 30,
+    "90 days" to 90,
+    "1 year" to 365
+)

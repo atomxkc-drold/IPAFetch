@@ -16,7 +16,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -42,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.omnidex.app.domain.AiCatalog
 import com.omnidex.app.domain.AppCatalog
+import com.omnidex.app.domain.EntryType
 import com.omnidex.app.ui.components.AppIcon
 import com.omnidex.app.ui.components.ExpressiveTextField
 import com.omnidex.app.ui.components.TagPill
@@ -166,7 +169,7 @@ fun TypePillRow(
                     .then(if (isSelected) Modifier.border(1.dp, colors.accent, CircleShape) else Modifier)
                     .clickable { onSelect(entryType) }
                     .padding(horizontal = 12.dp, vertical = 10.dp),
-                contentAlignment = Alignment.CenterVertically
+                contentAlignment = Alignment.Vertical.CenterVertically
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
