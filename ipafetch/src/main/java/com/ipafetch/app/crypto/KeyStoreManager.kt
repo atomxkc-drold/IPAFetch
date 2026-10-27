@@ -7,7 +7,6 @@ import java.security.KeyStore
 import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
-import kotlin.random.Random
 
 /**
  * Wraps the master key with a Keystore-bound AES-256-GCM key.
@@ -76,11 +75,9 @@ object KeyStoreManager {
     fun wrapMasterKey(masterKey: ByteArray): String {
         return try {
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(
-                Cipher.ENCRYPT_MODE,
-                getOrCreateMasterKey(),
-                GCMParameterSpec(GCM_TAG_LENGTH, Random.nextBytes(GCM_IV_LENGTH))
-            )
+            // The key requires randomized encryption, so the provider owns the
+            // IV. Supplying one throws InvalidAlgorithmParameterException.
+            cipher.init(Cipher.ENCRYPT_MODE, getOrCreateMasterKey())
             val ciphertext = cipher.doFinal(masterKey)
             Base64.getEncoder().encodeToString(cipher.iv + ciphertext)
         } catch (t: Throwable) {
