@@ -155,7 +155,7 @@ fun AddEditScreen(
         ) {
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    RoundIconButton(Icons.Rounded.ArrowBack, "Back", onCancel)
+                    RoundIconButton(ArrowBack, "Back", onCancel)
                     Spacer(Modifier.width(6.dp))
                     Text(
                         text = if (isNew) "New entry" else "Edit entry",
