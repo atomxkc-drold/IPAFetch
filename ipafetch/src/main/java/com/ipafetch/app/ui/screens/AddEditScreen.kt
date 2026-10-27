@@ -28,11 +28,14 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,12 +44,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ipafetch.app.crypto.CryptoManager
+import com.ipafetch.app.domain.AiCatalog
+import com.ipafetch.app.domain.CustomLogos
 import com.ipafetch.app.domain.EntryCategories
 import com.ipafetch.app.domain.EntryType
 import com.ipafetch.app.domain.PermissionCatalog
@@ -96,6 +102,14 @@ fun AddEditScreen(
     onDelete: (() -> Unit)? = null
 ) {
     val colors = IpafetchTheme.colors
+    val context = LocalContext.current
+    var usedByApps by remember(existing?.id) { mutableStateOf(existing?.usedByApps ?: emptyList()) }
+    var showApps by remember { mutableStateOf(false) }
+    val logoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            CustomLogos.save(context, uri)?.let { saved -> brandId = saved }
+        }
+    }
     var title by remember(existing?.id) { mutableStateOf(existing?.title ?: "") }
     var brandId by remember(existing?.id) { mutableStateOf(existing?.brandId ?: initialBrandId ?: "") }
     var type by remember(existing?.id) { mutableStateOf(EntryType.from(existing?.type)) }
@@ -219,6 +233,24 @@ fun AddEditScreen(
                         )
                         Spacer(Modifier.height(10.dp))
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            item {
+                                Column(
+                                    modifier = Modifier
+                                        .width(74.dp)
+                                        .clip(rowShape(1f))
+                                        .background(
+                                            if (brandId.isBlank() || CustomLogos.isCustom(brandId)) colors.accentSoft
+                                            else colors.row
+                                        )
+                                        .clickable { brandId = "" }
+                                        .padding(vertical = 10.dp, horizontal = 6.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    BrandTile("", "Custom", size = 34.dp)
+                                    Spacer(Modifier.height(6.dp))
+                                    Text("Custom", color = colors.textSecondary, fontSize = 10.sp)
+                                }
+                            }
                             items(brands, key = { it.id }) { brand ->
                                 BrandPickerTile(
                                     brand = brand,
@@ -236,6 +268,29 @@ fun AddEditScreen(
                             }
                         }
                     }
+                }
+            }
+
+            if (brandId.isBlank() || CustomLogos.isCustom(brandId)) {
+                item {
+                    SettingsRow(
+                        title = "Provider logo",
+                        supporting = if (CustomLogos.isCustom(brandId)) {
+                            "Custom image uploaded"
+                        } else {
+                            "Upload your own image for this provider"
+                        },
+                        leading = { BrandTile(brandId, title.ifBlank { "Custom" }, size = 30.dp) },
+                        trailing = {
+                            Text(
+                                if (CustomLogos.isCustom(brandId)) "Replace" else "Upload",
+                                color = colors.accent,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        },
+                        onClick = { logoLauncher.launch("image/*") }
+                    )
                 }
             }
 
@@ -329,7 +384,7 @@ fun AddEditScreen(
                 ExpressiveTextField(
                     value = generateUrl,
                     onValueChange = { generateUrl = it },
-                    label = "Where to generate it",
+                    label = "Where it was generated",
                     placeholder = "https://console…/api-keys",
                     keyboardType = KeyboardType.Uri
                 )
@@ -356,12 +411,28 @@ fun AddEditScreen(
                 )
             }
 
+            if (AiCatalog.hasInfo(brandId)) {
+                item {
+                    AiInfoBlock(
+                        brandId = brandId,
+                        selectedModel = extras["model"],
+                        onSelectModel = { model ->
+                            extras = if (extras["model"] == model) extras - "model" else extras + ("model" to model)
+                        }
+                    )
+                }
+            }
+
             item {
-                ExpressiveTextField(
-                    value = usedBy,
-                    onValueChange = { usedBy = it },
-                    label = "Used by application",
-                    placeholder = "e.g. deploy-worker, iOS app, Zapier"
+                SettingsRow(
+                    title = "Used by apps",
+                    supporting = if (usedByApps.isEmpty()) {
+                        "No apps linked · tap to choose installed apps"
+                    } else {
+                        "${usedByApps.size} app${if (usedByApps.size == 1) "" else "s"} linked"
+                    },
+                    leading = { Icon(Icons.Rounded.PhoneAndroid, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
+                    onClick = { showApps = true }
                 )
             }
 
@@ -508,6 +579,7 @@ fun AddEditScreen(
                                 category = category,
                                 tags = tags,
                                 permissions = permissions,
+                                usedByApps = usedByApps,
                                 environment = environment,
                                 expiresAt = expiresAt,
                                 favorite = favorite,
@@ -538,6 +610,13 @@ fun AddEditScreen(
         }
     }
 
+    if (showApps) {
+        AppPickerSheet(
+            selected = usedByApps,
+            onDismiss = { showApps = false },
+            onChange = { usedByApps = it }
+        )
+    }
     if (showTags) {
         TagsSheet(
             current = tags,

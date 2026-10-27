@@ -97,6 +97,7 @@ fun SettingsScreen(
     onReset: () -> Unit,
     onClearTags: () -> Unit,
     onResetAppearance: () -> Unit,
+    onTestBiometrics: () -> Unit,
     bottomBar: @Composable () -> Unit
 ) {
     val colors = IpafetchTheme.colors
@@ -475,6 +476,19 @@ fun SettingsScreen(
                                     onCheckedChange = { value -> onUpdate { it.copy(allowScreenshots = value) } }
                                 )
                             }
+                        )
+                        SettingsRow(
+                            title = "Test biometric unlock",
+                            supporting = "Runs the prompt now and reports the exact result",
+                            leading = {
+                                Icon(
+                                    Icons.Rounded.Fingerprint,
+                                    contentDescription = null,
+                                    tint = colors.accent,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            },
+                            onClick = onTestBiometrics
                         )
                     }
 

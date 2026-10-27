@@ -52,6 +52,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ipafetch.app.domain.EntryType
+import com.ipafetch.app.domain.AiCatalog
 import com.ipafetch.app.domain.ServiceProfiles
 import com.ipafetch.app.domain.VaultEntry
 import com.ipafetch.app.ui.brand.BrandCatalog
@@ -190,7 +191,7 @@ fun EntryDetailScreen(
             Spacer(Modifier.height(10.dp))
             if (entry.generateUrl.isNotBlank()) {
                 SettingsRow(
-                    title = "Generate at ${brand?.name ?: "provider"}",
+                    title = "Generated at ${brand?.name ?: "provider"}",
                     supporting = entry.generateUrl,
                     leading = { Icon(Icons.Rounded.OpenInNew, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
                     onClick = { onOpenUrl(entry.generateUrl) }
@@ -234,6 +235,25 @@ fun EntryDetailScreen(
                         .padding(14.dp)
                 ) {
                     PermissionSummary(brandId = entry.brandId, grants = entry.permissions)
+                }
+            }
+
+            if (entry.usedByApps.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                SectionTitle("Used by")
+                UsedByPills(entry.usedByApps)
+            }
+
+            AiCatalog.of(entry.brandId)?.let { info ->
+                Spacer(Modifier.height(16.dp))
+                SectionTitle("Model info")
+                MetaRow("Modality", info.modality)
+                Spacer(Modifier.height(8.dp))
+                MetaRow("Base URL", info.baseUrl)
+                val model = extras["model"]
+                if (model != null) {
+                    Spacer(Modifier.height(8.dp))
+                    MetaRow("Default model", model)
                 }
             }
 

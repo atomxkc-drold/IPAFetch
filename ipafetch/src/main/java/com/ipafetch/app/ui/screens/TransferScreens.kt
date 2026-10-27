@@ -1,6 +1,8 @@
 package com.ipafetch.app.ui.screens
 
 import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -60,6 +62,20 @@ fun ExportScreen(
     var passphrase by remember { mutableStateOf("") }
     var result by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    var notice by remember { mutableStateOf<String?>(null) }
+    val saveLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        val payload = result
+        if (uri != null && payload != null) {
+            val wrote = runCatching {
+                context.contentResolver.openOutputStream(uri)?.use { stream ->
+                    stream.write(payload.toByteArray(Charsets.UTF_8))
+                }
+            }.isSuccess
+            notice = if (wrote) "Saved to the folder you picked" else "Could not write that file"
+        }
+    }
 
     AppBackground(Modifier.fillMaxSize()) {
         Column(
@@ -167,6 +183,15 @@ fun ExportScreen(
                         }
                     }
                 }
+                Spacer(Modifier.height(10.dp))
+                SecondaryButton(
+                    label = "Save to folder…",
+                    onClick = { saveLauncher.launch("ipafetch-backup.json") }
+                )
+                if (notice != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(notice!!, color = colors.accent, fontSize = 12.sp)
+                }
             }
         }
     }
@@ -178,10 +203,22 @@ fun ImportScreen(
     onImport: (String, String) -> String?
 ) {
     val colors = IpafetchTheme.colors
+    val context = LocalContext.current
     var payload by remember { mutableStateOf("") }
     var passphrase by remember { mutableStateOf("") }
     var message by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    val openLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            payload = runCatching {
+                context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+            }.getOrNull().orEmpty()
+            message = null
+            error = null
+        }
+    }
 
     AppBackground(Modifier.fillMaxSize()) {
         Column(
@@ -204,6 +241,11 @@ fun ImportScreen(
                 lineHeight = 19.sp
             )
             Spacer(Modifier.height(16.dp))
+            SecondaryButton(
+                label = "Open a backup file…",
+                onClick = { openLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) }
+            )
+            Spacer(Modifier.height(10.dp))
             ExpressiveTextField(
                 value = payload,
                 onValueChange = { payload = it; error = null; message = null },

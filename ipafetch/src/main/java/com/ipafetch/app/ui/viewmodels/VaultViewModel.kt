@@ -98,8 +98,14 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
      * working on the next launch instead of failing with a cipher error.
      */
     private fun healWrappedKey(key: ByteArray) {
-        if (SecurePrefs.getWrappedMasterKey(appContext) != null) return
-        runCatching { SecurePrefs.saveWrappedMasterKey(appContext, KeyStoreManager.wrapMasterKey(key)) }
+        val existing = SecurePrefs.getWrappedMasterKey(appContext)
+        if (existing != null && KeyStoreManager.canUnwrap(existing)) return
+        // Missing, or sealed by a Keystore key we can no longer use (older
+        // auth-bound alias): re-wrap now that the password proved the key.
+        runCatching {
+            SecurePrefs.saveWrappedMasterKey(appContext, KeyStoreManager.wrapMasterKey(key))
+            KeyStoreManager.deleteLegacyKeys()
+        }
     }
 
     fun unlockWithBiometricKey(key: ByteArray) {
@@ -179,6 +185,9 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
 
     fun deleteEntry(id: Long) {
         val entry = repo()?.getById(id)
+        if (entry != null && com.ipafetch.app.domain.CustomLogos.isCustom(entry.brandId)) {
+            com.ipafetch.app.domain.CustomLogos.delete(appContext, entry.brandId)
+        }
         repo()?.delete(id)
         AuditLogger.log(appContext, "entry_deleted", entry?.title ?: id.toString())
     }

@@ -12,26 +12,20 @@ import kotlin.random.Random
 /**
  * Wraps the master key with a Keystore-bound AES-256-GCM key.
  *
- * Model:
- *   - A non-exportable Keystore key is created once (StrongBox when the device
- *     offers it, TEE otherwise).
- *   - The password-derived master key is encrypted with it and only the
- *     ciphertext blob is persisted, so the raw master key never touches disk.
- *   - The biometric / device-credential prompt gates the UI before the blob is
- *     unsealed; the Keystore key itself cannot be extracted from the device.
- *
- * The key deliberately does not require per-use authentication: the vault is
- * first unlocked by password (which proves knowledge) and the Keystore wrap is
- * a second, device-bound layer rather than the only check.
+ * The alias is versioned (v2). The first release created an
+ * authentication-required key under an older alias; that key can never be used
+ * without a CryptoObject, which silently broke biometric unlock. Bumping the
+ * alias guarantees a fresh, non-auth key, and [canUnwrap] lets callers verify a
+ * stored blob instead of trusting its presence.
  */
 object KeyStoreManager {
 
-    private const val KEY_ALIAS = "ipafetch_master_wrap"
+    private const val KEY_ALIAS = "ipafetch_wrap_v2"
+    private const val LEGACY_ALIASES = listOf("ipafetch_master_wrap")
     private const val ANDROID_KEYSTORE = "AndroidKeyStore"
     private const val GCM_TAG_LENGTH = 128
     private const val GCM_IV_LENGTH = 12
 
-    /** Get or create the device-bound Keystore AES key. */
     fun getOrCreateMasterKey(): javax.crypto.SecretKey {
         val ks = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
         if (ks.containsAlias(KEY_ALIAS)) {
@@ -63,10 +57,6 @@ object KeyStoreManager {
         return generator.generateKey()
     }
 
-    /**
-     * Encrypt the master key with the Keystore key.
-     * Returns base64(iv(12) + ciphertext+tag).
-     */
     fun wrapMasterKey(masterKey: ByteArray): String {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(
@@ -75,28 +65,45 @@ object KeyStoreManager {
             GCMParameterSpec(GCM_TAG_LENGTH, Random.nextBytes(GCM_IV_LENGTH))
         )
         val ciphertext = cipher.doFinal(masterKey)
-        // The IV the cipher actually used is authoritative.
         return Base64.getEncoder().encodeToString(cipher.iv + ciphertext)
     }
 
-    /**
-     * Decrypt a blob produced by [wrapMasterKey] with a cipher initialised for
-     * GCM decryption on the same IV.
-     */
-    fun unwrapMasterKey(authenticatedCipher: Cipher, wrappedB64: String): ByteArray? {
-        return try {
-            val blob = Base64.getDecoder().decode(wrappedB64)
-            authenticatedCipher.doFinal(blob.copyOfRange(GCM_IV_LENGTH, blob.size))
-        } catch (e: Exception) {
-            null
-        }
-    }
+    /** True when the current Keystore key can actually decrypt this blob. */
+    fun canUnwrap(wrappedB64: String): Boolean = runCatching {
+        val blob = Base64.getDecoder().decode(wrappedB64)
+        val iv = blob.copyOfRange(0, GCM_IV_LENGTH)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(
+            Cipher.DECRYPT_MODE,
+            getOrCreateMasterKey(),
+            GCMParameterSpec(GCM_TAG_LENGTH, iv)
+        )
+        cipher.doFinal(blob.copyOfRange(GCM_IV_LENGTH, blob.size))
+        true
+    }.getOrDefault(false)
 
-    /** Delete the wrapping key (reset / wipe path). */
+    fun unwrapMasterKey(authenticatedCipher: Cipher, wrappedB64: String): ByteArray? = runCatching {
+        val blob = Base64.getDecoder().decode(wrappedB64)
+        authenticatedCipher.doFinal(blob.copyOfRange(GCM_IV_LENGTH, blob.size))
+    }.getOrNull()
+
     fun deleteMasterKey() {
         runCatching {
             val ks = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
             if (ks.containsAlias(KEY_ALIAS)) ks.deleteEntry(KEY_ALIAS)
+            LEGACY_ALIASES.forEach { alias ->
+                if (ks.containsAlias(alias)) ks.deleteEntry(alias)
+            }
+        }
+    }
+
+    /** Removes keys from earlier releases that were auth-bound and unusable. */
+    fun deleteLegacyKeys() {
+        runCatching {
+            val ks = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
+            LEGACY_ALIASES.forEach { alias ->
+                if (ks.containsAlias(alias)) ks.deleteEntry(alias)
+            }
         }
     }
 

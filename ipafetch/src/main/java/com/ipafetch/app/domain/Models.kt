@@ -48,6 +48,7 @@ data class VaultEntry(
     val docsUrl: String = "",
     val usage: String = "",
     val usedBy: String = "",
+    val usedByApps: List<String> = emptyList(),
     val variant: String = "",
     val permissions: List<PermissionGrant> = emptyList(),
     val category: String = EntryCategories.OTHER,

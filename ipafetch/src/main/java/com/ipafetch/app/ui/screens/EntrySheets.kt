@@ -61,6 +61,15 @@ private val pillPalette = listOf(
 private fun pillColor(name: String): Color =
     pillPalette[name.hashCode().absoluteValue % pillPalette.size]
 
+/** Tags use the same idea but more saturated, so a tapped tag reads as chosen. */
+private val tagPalette = listOf(
+    Color(0xFFE53935), Color(0xFF8E24AA), Color(0xFF00897B),
+    Color(0xFFD81B60), Color(0xFF1E88E5), Color(0xFFF57C00), Color(0xFF00838F)
+)
+
+private fun tagColor(name: String): Color =
+    tagPalette[name.hashCode().absoluteValue % tagPalette.size]
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TagsSheet(
@@ -140,14 +149,16 @@ fun TagsSheet(
                 Spacer(Modifier.height(8.dp))
                 WrapRow {
                     suggestions.forEach { tag ->
+                        val tint = tagColor(tag)
                         Box(
                             Modifier
                                 .clip(CircleShape)
-                                .background(colors.row)
+                                .background(tint.copy(alpha = 0.16f))
+                                .border(1.dp, tint.copy(alpha = 0.55f), CircleShape)
                                 .clickable { onChange(current + tag) }
                                 .padding(horizontal = 12.dp, vertical = 8.dp)
                         ) {
-                            Text(tag, color = colors.accent, fontSize = 12.sp)
+                            Text(tag, color = tint, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                         }
                     }
                 }
@@ -163,14 +174,16 @@ fun TagsSheet(
 @Composable
 private fun RemovablePill(label: String, onRemove: () -> Unit) {
     val colors = IpafetchTheme.colors
+    val tint = tagColor(label)
     Row(
         modifier = Modifier
             .clip(CircleShape)
-            .background(colors.accentSoft)
+            .background(tint.copy(alpha = 0.22f))
+            .border(1.dp, tint, CircleShape)
             .padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, color = colors.textPrimary, fontSize = 12.sp)
+        Text(label, color = tint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.width(4.dp))
         Box(
             Modifier
@@ -179,7 +192,7 @@ private fun RemovablePill(label: String, onRemove: () -> Unit) {
                 .clickable(onClick = onRemove),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Rounded.Close, contentDescription = "Remove $label", tint = colors.textSecondary, modifier = Modifier.size(13.dp))
+            Icon(Icons.Rounded.Close, contentDescription = "Remove $label", tint = tint, modifier = Modifier.size(13.dp))
         }
     }
 }

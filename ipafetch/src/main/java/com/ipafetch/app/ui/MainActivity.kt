@@ -74,6 +74,7 @@ class MainActivity : FragmentActivity() {
     private var gate: BiometricGate? = null
     private var backgroundedAt = 0L
     private var biometricPrompted = false
+    private var biometricTesting = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -98,15 +99,22 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    private fun promptBiometric(settings: AppSettings) {
-        if (!settings.biometric || biometricPrompted) return
+    private fun promptBiometric(settings: AppSettings, force: Boolean = false) {
+        if (!settings.biometric && !force) return
+        if (biometricPrompted && !force) return
         biometricPrompted = true
+        biometricTesting = force
         val next = BiometricGate(
             activity = this,
-            onUnlocked = { key -> viewModel.unlockWithBiometricKey(key) },
+            onUnlocked = { key ->
+                viewModel.unlockWithBiometricKey(key)
+                if (biometricTesting) toast("Biometric unlock works")
+                biometricTesting = false
+            },
             onError = { message ->
                 biometricPrompted = false
-                toast(message)
+                toast(if (biometricTesting) "Biometric test: $message" else message)
+                biometricTesting = false
             }
         )
         gate?.shutdown()
@@ -307,6 +315,7 @@ class MainActivity : FragmentActivity() {
                             }
                             toast("Appearance reset")
                         },
+                        onTestBiometrics = { promptBiometric(settings, force = true) },
                         bottomBar = bottomBar
                     )
 
