@@ -316,6 +316,7 @@ class MainActivity : FragmentActivity() {
                             toast("Appearance reset")
                         },
                         onTestBiometrics = { promptBiometric(settings, force = true) },
+                        onRepairBiometrics = { toast(viewModel.repairBiometric()) },
                         bottomBar = bottomBar
                     )
 

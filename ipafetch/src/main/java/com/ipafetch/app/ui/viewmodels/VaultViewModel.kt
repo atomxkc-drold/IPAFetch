@@ -116,6 +116,27 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
         attachSession(key)
     }
 
+    /**
+     * Re-seals the master key for biometrics using the in-memory session key, so
+     * an existing vault does not need the password typed again. Returns a short
+     * message for the settings row to show.
+     */
+    fun repairBiometric(): String {
+        val key = Session.masterKey ?: return "Unlock with your password first"
+        val wrapped = runCatching { KeyStoreManager.wrapMasterKey(key) }.getOrElse { t ->
+            return "Keystore refused the key · ${t.javaClass.simpleName}" +
+                (t.message?.let { ": $it" } ?: "")
+        }
+        SecurePrefs.saveWrappedMasterKey(appContext, wrapped)
+        val stored = SecurePrefs.getWrappedMasterKey(appContext)
+        return when {
+            stored == null -> "Keystore produced a key but nothing was stored"
+            KeyStoreManager.canUnwrap(stored) -> "Biometric unlock is set up now"
+            else -> "Stored, but it cannot be decrypted yet" +
+                (KeyStoreManager.lastError?.let { " · $it" } ?: "")
+        }
+    }
+
     private fun attachSession(key: ByteArray) {
         val repo = VaultRepository(appContext, key)
         Session.set(key, repo)

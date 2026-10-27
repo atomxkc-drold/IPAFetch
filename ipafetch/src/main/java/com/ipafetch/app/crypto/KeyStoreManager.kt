@@ -20,6 +20,15 @@ import kotlin.random.Random
  */
 object KeyStoreManager {
 
+    /** Last Keystore failure, surfaced in Settings instead of being swallowed. */
+    @Volatile
+    var lastError: String? = null
+        private set
+
+    private fun record(t: Throwable) {
+        lastError = t.javaClass.simpleName + (t.message?.let { ": $it" } ?: "")
+    }
+
     private const val KEY_ALIAS = "ipafetch_wrap_v2"
     private val LEGACY_ALIASES = listOf("ipafetch_master_wrap")
     private const val ANDROID_KEYSTORE = "AndroidKeyStore"
@@ -33,11 +42,18 @@ object KeyStoreManager {
         }
         val generated = runCatching { generateKey(strongBox = true) }
             .recoverCatching { generateKey(strongBox = false) }
+        generated.exceptionOrNull()?.let { record(it) }
         generated.getOrThrow()
         return (ks.getEntry(KEY_ALIAS, null) as KeyStore.SecretKeyEntry).secretKey
     }
 
     private fun generateKey(strongBox: Boolean): javax.crypto.SecretKey {
+        val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
+        // A failed StrongBox attempt can leave the alias behind, which makes the
+        // non-StrongBox retry fail with "alias already exists". Clear it first.
+        if (keyStore.containsAlias(KEY_ALIAS)) {
+            runCatching { keyStore.deleteEntry(KEY_ALIAS) }
+        }
         val generator = javax.crypto.KeyGenerator.getInstance(
             KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE
         )
@@ -58,14 +74,19 @@ object KeyStoreManager {
     }
 
     fun wrapMasterKey(masterKey: ByteArray): String {
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(
-            Cipher.ENCRYPT_MODE,
-            getOrCreateMasterKey(),
-            GCMParameterSpec(GCM_TAG_LENGTH, Random.nextBytes(GCM_IV_LENGTH))
-        )
-        val ciphertext = cipher.doFinal(masterKey)
-        return Base64.getEncoder().encodeToString(cipher.iv + ciphertext)
+        return try {
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(
+                Cipher.ENCRYPT_MODE,
+                getOrCreateMasterKey(),
+                GCMParameterSpec(GCM_TAG_LENGTH, Random.nextBytes(GCM_IV_LENGTH))
+            )
+            val ciphertext = cipher.doFinal(masterKey)
+            Base64.getEncoder().encodeToString(cipher.iv + ciphertext)
+        } catch (t: Throwable) {
+            record(t)
+            throw t
+        }
     }
 
     /** True when the current Keystore key can actually decrypt this blob. */

@@ -98,6 +98,7 @@ fun SettingsScreen(
     onClearTags: () -> Unit,
     onResetAppearance: () -> Unit,
     onTestBiometrics: () -> Unit,
+    onRepairBiometrics: () -> Unit,
     bottomBar: @Composable () -> Unit
 ) {
     val colors = IpafetchTheme.colors
@@ -489,6 +490,19 @@ fun SettingsScreen(
                                 )
                             },
                             onClick = onTestBiometrics
+                        )
+                        SettingsRow(
+                            title = "Repair biometric unlock",
+                            supporting = "Stores the wrapped key using the open session — no password needed",
+                            leading = {
+                                Icon(
+                                    Icons.Rounded.Lock,
+                                    contentDescription = null,
+                                    tint = colors.accent,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            },
+                            onClick = onRepairBiometrics
                         )
                     }
 

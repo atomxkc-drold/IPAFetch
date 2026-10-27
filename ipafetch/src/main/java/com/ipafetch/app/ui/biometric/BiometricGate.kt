@@ -31,7 +31,7 @@ class BiometricGate(
     fun authenticate() {
         val wrapped = SecurePrefs.getWrappedMasterKey(activity)
         if (wrapped.isNullOrBlank()) {
-            onError("Biometric unlock isn't set up for this vault yet. Unlock with your master password once and it will be enabled.")
+            onError("No biometric key stored yet — tap Repair biometric unlock")
             return
         }
         val chosen = runCatching { plan() }.getOrNull() ?: run {
