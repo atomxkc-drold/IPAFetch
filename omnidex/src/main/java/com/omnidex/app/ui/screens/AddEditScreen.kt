@@ -26,10 +26,12 @@ import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.FormatSize
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.LocalOffer
@@ -636,19 +638,19 @@ private fun BrandPickerTile(brand: Brand, selected: Boolean, onClick: () -> Unit
 }
 
 private fun typeIcon(type: EntryType) = when (type) {
-    EntryType.TOKEN -> Icons.Rounded.Key
-    EntryType.API -> Icons.Rounded.Code
-    EntryType.JSON -> Icons.Rounded.Code
-    EntryType.LINK -> Icons.Rounded.Link
-    EntryType.SECRET -> Icons.Rounded.Key
-    EntryType.TEXT -> Icons.Rounded.Edit
-    EntryType.MODULE -> Icons.Rounded.LocalOffer
-    EntryType.ADB -> Icons.Rounded.PhoneAndroid
-    EntryType.SSH -> Icons.Rounded.Link
-    EntryType.COLOR -> Icons.Rounded.FormatSize
-    EntryType.NUMBER -> Icons.Rounded.FormatSize
-    EntryType.NOTE -> Icons.Rounded.ContentCopy
-    else -> Icons.Rounded.Info
+    EntryType.TOKEN -> Key
+    EntryType.API -> Code
+    EntryType.JSON -> Code
+    EntryType.LINK -> Link
+    EntryType.SECRET -> Key
+    EntryType.TEXT -> Edit
+    EntryType.MODULE -> LocalOffer
+    EntryType.ADB -> PhoneAndroid
+    EntryType.SSH -> Link
+    EntryType.COLOR -> FormatSize
+    EntryType.NUMBER -> FormatSize
+    EntryType.NOTE -> ContentCopy
+    else -> Info
 }
 
 private fun daysFromNow(days: Int): Long =

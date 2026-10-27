@@ -23,6 +23,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Code
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Create
+import androidx.compose.material.icons.rounded.FormatSize
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Key
+import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.LocalOffer
+import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -125,7 +134,7 @@ fun AppPickerSheet(
                         }
                         if (isSelected) {
                             Icon(
-                                Icons.Rounded.Check,
+                                Check,
                                 contentDescription = "Selected",
                                 tint = colors.accent,
                                 modifier = Modifier.size(18.dp)
@@ -194,19 +203,19 @@ fun TypePillRow(
 }
 
 private fun typeIcon(type: EntryType) = when (type) {
-    EntryType.TOKEN -> Icons.Rounded.Key
-    EntryType.API -> Icons.Rounded.Code
-    EntryType.JSON -> Icons.Rounded.Code
-    EntryType.LINK -> Icons.Rounded.Link
-    EntryType.SECRET -> Icons.Rounded.Key
-    EntryType.TEXT -> Icons.Rounded.Create
-    EntryType.MODULE -> Icons.Rounded.LocalOffer
-    EntryType.ADB -> Icons.Rounded.PhoneAndroid
-    EntryType.SSH -> Icons.Rounded.Link
-    EntryType.COLOR -> Icons.Rounded.FormatSize
-    EntryType.NUMBER -> Icons.Rounded.FormatSize
-    EntryType.NOTE -> Icons.Rounded.ContentCopy
-    else -> Icons.Rounded.Info
+    EntryType.TOKEN -> Key
+    EntryType.API -> Code
+    EntryType.JSON -> Code
+    EntryType.LINK -> Link
+    EntryType.SECRET -> Key
+    EntryType.TEXT -> Create
+    EntryType.MODULE -> LocalOffer
+    EntryType.ADB -> PhoneAndroid
+    EntryType.SSH -> Link
+    EntryType.COLOR -> FormatSize
+    EntryType.NUMBER -> FormatSize
+    EntryType.NOTE -> ContentCopy
+    else -> Info
 }
 
 /**
