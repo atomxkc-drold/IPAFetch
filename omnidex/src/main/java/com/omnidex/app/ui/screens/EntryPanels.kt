@@ -134,8 +134,8 @@ fun AppPickerSheet(
                         }
                         if (isSelected) {
                             Icon(
-                                Check,
-                                contentDescription = "Selected",
+                            Icons.Rounded.Check,
+                            contentDescription = "Selected",
                                 tint = colors.accent,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -208,14 +208,14 @@ private fun typeIcon(type: EntryType) = when (type) {
     EntryType.JSON -> Icons.Rounded.Code
     EntryType.LINK -> Icons.Rounded.Link
     EntryType.SECRET -> Icons.Rounded.Key
-    EntryType.TEXT -> Icons.Default.Create
+    EntryType.TEXT -> Icons.Filled.Edit
     EntryType.MODULE -> Icons.Rounded.LocalOffer
     EntryType.ADB -> Icons.Rounded.PhoneAndroid
     EntryType.SSH -> Icons.Rounded.Link
-    EntryType.COLOR -> Icons.Default.FormatSize
-    EntryType.NUMBER -> Icons.Default.FormatSize
+    EntryType.COLOR -> Icons.Filled.FormatSize
+    EntryType.NUMBER -> Icons.Filled.FormatSize
     EntryType.NOTE -> Icons.Rounded.ContentCopy
-    else -> Icons.Default.Info
+    else -> Icons.Filled.Info
 }
 
 /**
