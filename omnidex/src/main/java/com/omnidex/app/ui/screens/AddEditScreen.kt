@@ -1,5 +1,7 @@
 package com.omnidex.app.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -65,6 +67,7 @@ import com.omnidex.app.ui.components.BrandTile
 import com.omnidex.app.ui.components.ChipRow
 import com.omnidex.app.ui.components.DropdownRow
 import com.omnidex.app.ui.components.ErrorLine
+import com.omnidex.app.ui.components.ExpressiveSegmented
 import com.omnidex.app.ui.components.ExpressiveTextField
 import com.omnidex.app.ui.components.PrimaryButton
 import com.omnidex.app.ui.components.RoundIconButton
@@ -98,15 +101,15 @@ fun AddEditScreen(
     val context = LocalContext.current
     var usedByApps by remember(existing?.id) { mutableStateOf(existing?.usedByApps ?: emptyList()) }
     var showApps by remember { mutableStateOf(false) }
+    var title by remember(existing?.id) { mutableStateOf(existing?.title ?: "") }
+    var brandId by remember(existing?.id) { mutableStateOf(existing?.brandId ?: initialBrandId ?: "") }
     val logoLauncher = rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+        ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) {
             CustomLogos.save(context, uri)?.let { saved -> brandId = saved }
         }
     }
-    var title by remember(existing?.id) { mutableStateOf(existing?.title ?: "") }
-    var brandId by remember(existing?.id) { mutableStateOf(existing?.brandId ?: initialBrandId ?: "") }
     var type by remember(existing?.id) { mutableStateOf(EntryType.from(existing?.type)) }
     var variant by remember(existing?.id) {
         mutableStateOf(
@@ -638,13 +641,13 @@ private fun typeIcon(type: EntryType) = when (type) {
     EntryType.JSON -> Icons.Rounded.Code
     EntryType.LINK -> Icons.Rounded.Link
     EntryType.SECRET -> Icons.Rounded.Key
-    EntryType.TEXT -> Icons.Rounded.TextFields
+    EntryType.TEXT -> Icons.Rounded.Edit
     EntryType.MODULE -> Icons.Rounded.LocalOffer
     EntryType.ADB -> Icons.Rounded.PhoneAndroid
     EntryType.SSH -> Icons.Rounded.Link
-    EntryType.COLOR -> Icons.Rounded.Colorize
+    EntryType.COLOR -> Icons.Rounded.ColorLens
     EntryType.NOTE -> Icons.Rounded.ContentCopy
-    else -> Icons.Rounded.Widgets
+    else -> Icons.Rounded.Help
 }
 
 private fun daysFromNow(days: Int): Long =
