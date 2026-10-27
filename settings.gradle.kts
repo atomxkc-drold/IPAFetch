@@ -5,5 +5,5 @@ pluginManagement {
     }
 }
 
-rootProject.name = "IPAFetch"
-include(":ipafetch")
+rootProject.name = "OmniDex"
+include(":omnidex")

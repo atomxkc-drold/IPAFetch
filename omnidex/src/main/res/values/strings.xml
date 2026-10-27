@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OmniDex</string>
+    <string name="biometric_title">Unlock OmniDex</string>
+    <string name="biometric_subtitle">Authenticate to open your vault</string>
+    <string name="biometric_not_available">No biometric or device credential is set up</string>
+    <string name="biometric_use_password">Use password</string>
+    <string name="biometric_use_pin">Use PIN</string>
+    <string name="biometric_failed">Authentication failed</string>
+    <string name="biometric_decrypt_failed">Could not decrypt the vault</string>
+    <string name="biometric_cipher_init_failed">Could not initialise the cipher</string>
+</resources>

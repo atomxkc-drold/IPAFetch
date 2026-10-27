@@ -34,22 +34,22 @@ jobs:
           restore-keys: gradle-${{ runner.os }}-
 
       - name: Unit tests
-        run: ./gradlew :ipafetch:testDebugUnitTest --stacktrace
+        run: ./gradlew :omnidex:testDebugUnitTest --stacktrace
 
       - name: Assemble debug APK
-        run: ./gradlew :ipafetch:assembleDebug --stacktrace
+        run: ./gradlew :omnidex:assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: IPAFetch-debug-apk
-          path: ipafetch/build/outputs/apk/debug/*.apk
+          name: OmniDex-debug-apk
+          path: omnidex/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: IPAFetch-test-report
-          path: ipafetch/build/reports/tests/testDebugUnitTest/**
+          name: OmniDex-test-report
+          path: omnidex/build/reports/tests/testDebugUnitTest/**
           if-no-files-found: ignore
