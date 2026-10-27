@@ -105,13 +105,13 @@ fun AddEditScreen(
     val context = LocalContext.current
     var usedByApps by remember(existing?.id) { mutableStateOf(existing?.usedByApps ?: emptyList()) }
     var showApps by remember { mutableStateOf(false) }
+    var title by remember(existing?.id) { mutableStateOf(existing?.title ?: "") }
+    var brandId by remember(existing?.id) { mutableStateOf(existing?.brandId ?: initialBrandId ?: "") }
     val logoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             CustomLogos.save(context, uri)?.let { saved -> brandId = saved }
         }
     }
-    var title by remember(existing?.id) { mutableStateOf(existing?.title ?: "") }
-    var brandId by remember(existing?.id) { mutableStateOf(existing?.brandId ?: initialBrandId ?: "") }
     var type by remember(existing?.id) { mutableStateOf(EntryType.from(existing?.type)) }
     var variant by remember(existing?.id) {
         mutableStateOf(

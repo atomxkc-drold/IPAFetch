@@ -21,7 +21,7 @@ import kotlin.random.Random
 object KeyStoreManager {
 
     private const val KEY_ALIAS = "ipafetch_wrap_v2"
-    private const val LEGACY_ALIASES = listOf("ipafetch_master_wrap")
+    private val LEGACY_ALIASES = listOf("ipafetch_master_wrap")
     private const val ANDROID_KEYSTORE = "AndroidKeyStore"
     private const val GCM_TAG_LENGTH = 128
     private const val GCM_IV_LENGTH = 12
