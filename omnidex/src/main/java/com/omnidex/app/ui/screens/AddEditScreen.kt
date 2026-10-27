@@ -264,7 +264,7 @@ fun AddEditScreen(
             }
 
             // Type-specific fields (SSH host/port, ADB package, module repo, etc.)
-            val typeFields = remember(type) { TypeFields.forType(type) }
+            val typeFields = TypeFields.forType(type)
             if (typeFields.isNotEmpty()) {
                 item {
                     Column {
@@ -641,13 +641,14 @@ private fun typeIcon(type: EntryType) = when (type) {
     EntryType.JSON -> Icons.Rounded.Code
     EntryType.LINK -> Icons.Rounded.Link
     EntryType.SECRET -> Icons.Rounded.Key
-    EntryType.TEXT -> Icons.Rounded.TextFields
+    EntryType.TEXT -> Icons.Rounded.Edit
     EntryType.MODULE -> Icons.Rounded.LocalOffer
     EntryType.ADB -> Icons.Rounded.PhoneAndroid
     EntryType.SSH -> Icons.Rounded.Link
-    EntryType.COLOR -> Icons.Rounded.Palette
+    EntryType.COLOR -> Icons.Rounded.FormatSize
+    EntryType.NUMBER -> Icons.Rounded.FormatSize
     EntryType.NOTE -> Icons.Rounded.ContentCopy
-    else -> Icons.Rounded.HelpOutline
+    else -> Icons.Rounded.Info
 }
 
 private fun daysFromNow(days: Int): Long =
