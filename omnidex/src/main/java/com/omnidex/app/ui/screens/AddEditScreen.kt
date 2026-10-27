@@ -639,14 +639,14 @@ private fun typeIcon(type: EntryType) = when (type) {
     EntryType.JSON -> Icons.Rounded.Code
     EntryType.LINK -> Icons.Rounded.Link
     EntryType.SECRET -> Icons.Rounded.Key
-    EntryType.TEXT -> Icons.Filled.Edit
+    EntryType.TEXT -> Icons.Rounded.Edit
     EntryType.MODULE -> Icons.Rounded.LocalOffer
     EntryType.ADB -> Icons.Rounded.PhoneAndroid
     EntryType.SSH -> Icons.Rounded.Link
-    EntryType.COLOR -> Icons.Filled.FormatSize
-    EntryType.NUMBER -> Icons.Filled.FormatSize
+    EntryType.COLOR -> Icons.Rounded.FormatSize
+    EntryType.NUMBER -> Icons.Rounded.FormatSize
     EntryType.NOTE -> Icons.Rounded.ContentCopy
-    else -> Icons.Filled.Info
+    else -> Icons.Rounded.Info
 }
 
 private fun daysFromNow(days: Int): Long =
