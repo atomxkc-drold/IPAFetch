@@ -140,6 +140,72 @@ fun AppPickerSheet(
 }
 
 /**
+ * Pill-shaped horizontal list of entry types for the add/edit screen.
+ * Selected type fills with accent color; unselected are tinted row surface.
+ */
+@Composable
+fun TypePillRow(
+    options: List<EntryType>,
+    selected: EntryType,
+    onSelect: (EntryType) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colors = OmniDexTheme.colors
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        items(options, key = { it.key }) { entryType ->
+            val isSelected = entryType == selected
+            val icon = typeIcon(entryType)
+            Box(
+                modifier = Modifier
+                    .wrapContentWidth()
+                    .clip(CircleShape)
+                    .background(if (isSelected) colors.accent else colors.row)
+                    .then(if (isSelected) Modifier.border(1.dp, colors.accent, CircleShape) else Modifier)
+                    .clickable { onSelect(entryType) }
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                contentAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = if (isSelected) colors.onAccent else colors.textSecondary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        entryType.label,
+                        color = if (isSelected) colors.onAccent else colors.textPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun typeIcon(type: EntryType) = when (type) {
+    EntryType.TOKEN -> Icons.Rounded.Key
+    EntryType.API -> Icons.Rounded.Code
+    EntryType.JSON -> Icons.Rounded.Code
+    EntryType.LINK -> Icons.Rounded.Link
+    EntryType.SECRET -> Icons.Rounded.Key
+    EntryType.TEXT -> Icons.Rounded.TextFields
+    EntryType.MODULE -> Icons.Rounded.LocalOffer
+    EntryType.ADB -> Icons.Rounded.PhoneAndroid
+    EntryType.SSH -> Icons.Rounded.Link
+    EntryType.COLOR -> Icons.Rounded.Colorize
+    EntryType.NOTE -> Icons.Rounded.ContentCopy
+}
+
+/**
  * Read-only AI metadata: modality, base URL and the model ids this provider
  * exposes. Selecting a model stores it in the entry's encrypted extras, which
  * is also what a future connection test will call.

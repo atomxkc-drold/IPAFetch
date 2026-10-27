@@ -66,11 +66,12 @@ import com.omnidex.app.ui.components.BrandTile
 import com.omnidex.app.ui.components.ChipRow
 import com.omnidex.app.ui.components.DropdownRow
 import com.omnidex.app.ui.components.ErrorLine
-import com.omnidex.app.ui.components.ExpressiveSegmented
 import com.omnidex.app.ui.components.ExpressiveTextField
 import com.omnidex.app.ui.components.PrimaryButton
 import com.omnidex.app.ui.components.RoundIconButton
 import com.omnidex.app.ui.components.SettingsRow
+import com.omnidex.app.domain.TypeFields
+import com.omnidex.app.ui.screens.TypePillRow
 import com.omnidex.app.ui.theme.OmniDexTheme
 import com.omnidex.app.ui.theme.FavoriteGold
 import com.omnidex.app.ui.theme.rowShape
@@ -183,12 +184,10 @@ fun AddEditScreen(
             }
 
             item {
-                ExpressiveSegmented(
+                TypePillRow(
                     options = EntryType.editorOrder,
                     selected = type,
-                    label = { it.label },
-                    onSelect = { type = it },
-                    icon = { typeIcon(it) }
+                    onSelect = { type = it }
                 )
             }
 
@@ -292,8 +291,34 @@ fun AddEditScreen(
                         onClick = { logoLauncher.launch("image/*") }
                     )
                 }
-            }
 
+            // Type-specific fields (SSH host/port, ADB package, module repo, etc.)
+            val typeFields = remember(type) { TypeFields.forType(type) }
+            if (typeFields.isNotEmpty()) {
+                item {
+                    Column {
+                        Text(
+                            "${type.label} details",
+                            color = colors.textSecondary,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(start = 6.dp, bottom = 8.dp)
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        items(typeFields, key = { it.key }) { field ->
+                            ExpressiveTextField(
+                                value = extras[field.key] ?: "",
+                                onValueChange = { value ->
+                                    extras = if (value.isBlank()) extras - field.key else extras + (field.key to value)
+                                },
+                                label = field.label,
+                                placeholder = field.placeholder,
+                                isSecret = field.secret
+                            )
+                            Spacer(Modifier.height(8.dp))
+                        }
+                    }
+                }
+            }
             if (variants.isNotEmpty()) {
                 item {
                     Column {

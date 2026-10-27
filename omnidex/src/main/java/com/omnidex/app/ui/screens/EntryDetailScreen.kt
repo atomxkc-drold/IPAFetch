@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.sp
 import com.omnidex.app.domain.EntryType
 import com.omnidex.app.domain.AiCatalog
 import com.omnidex.app.domain.ServiceProfiles
+import com.omnidex.app.domain.TypeFields
 import com.omnidex.app.domain.VaultEntry
 import com.omnidex.app.ui.brand.BrandCatalog
 import com.omnidex.app.ui.components.AppBackground
@@ -187,6 +188,109 @@ fun EntryDetailScreen(
                 onReveal = { revealed = !revealed },
                 onCopy = onCopy
             )
+
+            // Type-specific detail blocks
+            if (type == EntryType.COLOR) {
+                val colorHex = entry.secret
+                val color = TypeFields.colorOf(colorHex)
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(color ?: colors.accent)
+                    )
+                    Spacer(Modifier.width(16.dp))
+                    Column {
+                        Text("Hex value", color = colors.textSecondary, fontSize = 12.sp)
+                        Text(colorHex, color = colors.textPrimary, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    RoundIconButton(Icons.Rounded.ContentCopy, "Copy hex", { onCopy() }, tint = colors.accent)
+                }
+            }
+
+            if (type == EntryType.NUMBER) {
+                val unit = extras["unit"] ?: ""
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Number value", color = colors.textSecondary, fontSize = 12.sp)
+                        Text(
+                            text = "${plaintext}${if (unit.isNotBlank()) " $unit" else ""}",
+                            color = colors.textPrimary,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                    RoundIconButton(Icons.Rounded.ContentCopy, "Copy number", { onCopy() }, tint = colors.accent)
+                }
+            }
+
+            if (type == EntryType.SSH) {
+                val host = extras["host"] ?: ""
+                val user = extras["user"] ?: ""
+                val port = extras["port"] ?: ""
+                val cmd = TypeFields.sshCommand(host, user, port)
+                Spacer(Modifier.height(10.dp))
+                SettingsRow(
+                    title = "SSH command",
+                    supporting = cmd,
+                    leading = { Icon(Icons.Rounded.Link, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
+                    onClick = { onCopy() }
+                )
+            }
+
+            if (type == EntryType.ADB) {
+                val pkg = extras["package"] ?: ""
+                val serial = extras["serial"] ?: ""
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Target package", color = colors.textSecondary, fontSize = 12.sp)
+                        Text(pkg.ifBlank { "—" }, color = colors.textPrimary, fontSize = 14.sp)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Column {
+                        Text("Serial", color = colors.textSecondary, fontSize = 12.sp)
+                        Text(serial.ifBlank { "—" }, color = colors.textPrimary, fontSize = 14.sp)
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                SettingsRow(
+                    title = "ADB command",
+                    supporting = plaintext.ifBlank { "—" },
+                    leading = { Icon(Icons.Rounded.PhoneAndroid, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
+                    onClick = { onCopy() }
+                )
+            }
+
+            if (type == EntryType.MODULE) {
+                val repo = extras["repo"] ?: ""
+                val version = extras["version"] ?: ""
+                val source = extras["source"] ?: ""
+                Spacer(Modifier.height(10.dp))
+                MetaRow("Repository", repo.ifBlank { "—" })
+                Spacer(Modifier.height(8.dp))
+                MetaRow("Version", version.ifBlank { "—" })
+                Spacer(Modifier.height(8.dp))
+                MetaRow("Source", source.ifBlank { "—" })
+                if (plaintext.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    MetaRow("Download link", plaintext)
+                }
+            }
 
             Spacer(Modifier.height(10.dp))
             if (entry.generateUrl.isNotBlank()) {

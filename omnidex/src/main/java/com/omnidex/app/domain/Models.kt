@@ -3,18 +3,37 @@ package com.omnidex.app.domain
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+/** How a value behaves in the UI: masked, plain, link, command, etc. */
+enum class ValueKind { SECRET, TEXT, URL, COMMAND, CONNECTION, COLOR, NUMBER }
+
 /** What kind of thing is being stored. */
-enum class EntryType(val key: String, val label: String, val hint: String) {
-    TOKEN("token", "Token", "Bearer token, PAT or bot token"),
-    API("api", "API key", "Provider-issued API key"),
-    JSON("json", "JSON", "Service-account or config JSON"),
-    LINK("link", "Link", "Console, dashboard or invite link"),
-    SECRET("secret", "Secret", "Webhook secret, signing key"),
-    NOTE("note", "Note", "Free-form secure note");
+enum class EntryType(
+    val key: String,
+    val label: String,
+    val hint: String,
+    val kind: ValueKind
+) {
+    TOKEN("token", "Token", "Bearer token, PAT or bot token", ValueKind.SECRET),
+    API("api", "API key", "Provider-issued API key", ValueKind.SECRET),
+    SECRET("secret", "Secret", "Webhook secret, signing key", ValueKind.SECRET),
+    JSON("json", "JSON", "Service-account or config JSON", ValueKind.TEXT),
+    TEXT("text", "Text", "Any plain value or note", ValueKind.TEXT),
+    NOTE("note", "Note", "Free-form secure note", ValueKind.TEXT),
+    LINK("link", "Link", "Console, dashboard or invite link", ValueKind.URL),
+    MODULE("module", "Module", "Magisk / KernelSU module release", ValueKind.URL),
+    ADB("adb", "ADB", "adb shell command for an app", ValueKind.COMMAND),
+    SSH("ssh", "SSH", "Host, port and optional key", ValueKind.CONNECTION),
+    COLOR("color", "Color", "Hex colour value", ValueKind.COLOR),
+    NUMBER("number", "Number", "Numeric value with a unit", ValueKind.NUMBER);
+
+    val isSecret: Boolean get() = kind == ValueKind.SECRET
 
     companion object {
         fun from(key: String?): EntryType = entries.firstOrNull { it.key == key } ?: TOKEN
-        val editorOrder = listOf(TOKEN, API, JSON, LINK, SECRET, NOTE)
+        val editorOrder = listOf(
+            TOKEN, API, SECRET, JSON, TEXT, NOTE,
+            LINK, MODULE, ADB, SSH, COLOR, NUMBER
+        )
     }
 }
 
@@ -41,26 +60,26 @@ data class VaultEntry(
     val id: Long = 0L,
     val title: String = "",
     val brandId: String = "",
+    val variant: String = "",
     val type: String = EntryType.TOKEN.key,
     val account: String = "",
+    val usedBy: String = "",
+    val usedByApps: List<String> = emptyList(),
     val secret: String = "",
     val generateUrl: String = "",
     val docsUrl: String = "",
     val usage: String = "",
-    val usedBy: String = "",
-    val usedByApps: List<String> = emptyList(),
-    val variant: String = "",
-    val permissions: List<PermissionGrant> = emptyList(),
     val category: String = EntryCategories.OTHER,
     val tags: List<String> = emptyList(),
+    val permissions: List<PermissionGrant> = emptyList(),
     val environment: String = "",
-    val extrasBlob: String = "",
     val expiresAt: Long? = null,
     val favorite: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val lastCopiedAt: Long? = null,
-    val copyCount: Int = 0
+    val copyCount: Int = 0,
+    val extrasBlob: String = ""
 ) {
     @kotlinx.serialization.Transient
     val typeValue: EntryType = EntryType.from(type)
@@ -74,19 +93,21 @@ data class VaultEntry(
             type.lowercase().contains(q) ||
             brandId.lowercase().contains(q) ||
             usage.lowercase().contains(q) ||
-            tags.any { it.lowercase().contains(q) }
+            tags.any { it.lowercase().contains(q) } ||
+            usedBy.lowercase().contains(q) ||
+            usedByApps.any { it.lowercase().contains(q) }
     }
 
     fun isExpired(now: Long = System.currentTimeMillis()): Boolean =
         expiresAt != null && expiresAt < now
 
-    fun permissionAccess(name: String): String =
-        permissions.firstOrNull { it.name == name }?.access ?: PermissionAccess.OFF
-
     fun expiresSoon(now: Long = System.currentTimeMillis()): Boolean {
         val e = expiresAt ?: return false
         return e >= now && e - now < 7L * 24 * 60 * 60 * 1000
     }
+
+    fun permissionAccess(name: String): String =
+        permissions.firstOrNull { it.name == name }?.access ?: PermissionAccess.OFF
 }
 
 /**
