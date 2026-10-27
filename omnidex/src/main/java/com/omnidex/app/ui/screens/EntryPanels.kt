@@ -22,9 +22,7 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FormatSize
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -200,14 +198,14 @@ private fun typeIcon(type: EntryType) = when (type) {
     EntryType.JSON -> Icons.Rounded.Code
     EntryType.LINK -> Icons.Rounded.Link
     EntryType.SECRET -> Icons.Rounded.Key
-    EntryType.TEXT -> Edit
+    EntryType.TEXT -> Icons.Default.Edit
     EntryType.MODULE -> Icons.Rounded.LocalOffer
     EntryType.ADB -> Icons.Rounded.PhoneAndroid
     EntryType.SSH -> Icons.Rounded.Link
-    EntryType.COLOR -> FormatSize
-    EntryType.NUMBER -> FormatSize
+    EntryType.COLOR -> Icons.Default.FormatSize
+    EntryType.NUMBER -> Icons.Default.FormatSize
     EntryType.NOTE -> Icons.Rounded.ContentCopy
-    else -> Info
+    else -> Icons.Default.Info
 }
 
 /**
