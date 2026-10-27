@@ -70,6 +70,7 @@ import com.omnidex.app.ui.components.BrandTile
 import com.omnidex.app.ui.components.ChipRow
 import com.omnidex.app.ui.components.DropdownRow
 import com.omnidex.app.ui.components.ErrorLine
+import com.omnidex.app.ui.components.ExpressiveSegmented
 import com.omnidex.app.ui.components.ExpressiveTextField
 import com.omnidex.app.ui.components.PrimaryButton
 import com.omnidex.app.ui.components.RoundIconButton
