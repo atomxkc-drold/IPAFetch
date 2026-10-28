@@ -491,7 +491,7 @@ fun AddEditScreen(
                     },
                     leading = {
                         Icon(
-                            Lock,
+                            Icons.Rounded.Lock,
                             contentDescription = null,
                             tint = colors.accent,
                             modifier = Modifier.size(20.dp)
