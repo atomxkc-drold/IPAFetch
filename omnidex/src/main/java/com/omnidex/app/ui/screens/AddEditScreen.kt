@@ -126,6 +126,12 @@ fun AddEditScreen(
     var expiresAt by remember(existing?.id) { mutableStateOf(existing?.expiresAt) }
     var favorite by remember(existing?.id) { mutableStateOf(existing?.favorite ?: false) }
     var extras by remember(existing?.id) { mutableStateOf(existingExtras) }
+    var contextKind by remember(existing?.id) { mutableStateOf(existing?.contextKind) }
+    var projectScope by remember(existing?.id) { mutableStateOf(existing?.projectScope ?: "") }
+    var fileNameHint by remember(existing?.id) { mutableStateOf(existing?.fileNameHint ?: "") }
+    var isTemplate by remember(existing?.id) { mutableStateOf(existing?.isTemplate ?: false) }
+    var burnAfterRead by remember(existing?.id) { mutableStateOf(existing?.burnAfterRead ?: false) }
+    var selectedTemplate by remember { mutableStateOf("Blank") }
 
     var error by remember { mutableStateOf<String?>(null) }
     var pickerOpen by remember { mutableStateOf(existing == null && initialBrandId == null) }
@@ -180,6 +186,25 @@ fun AddEditScreen(
                     selected = type,
                     onSelect = { type = it }
                 )
+            }
+
+            if (type == EntryType.CONTEXT || type == EntryType.PROMPT || type == EntryType.SKILL || type == EntryType.COMMAND) {
+                item {
+                    val templates = listOf("Blank", "AGENTS.md", "CLAUDE.md", "GEMINI.md", "CURSOR RULES", "Custom Command", "Agent Skill", "System Prompt", "User Prompt")
+                    SettingsRow(
+                        title = "Context Template",
+                        supporting = selectedTemplate,
+                        leading = {
+                            Icon(
+                                Icons.Rounded.AutoAwesome,
+                                contentDescription = null,
+                                tint = colors.accent,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        },
+                        onClick = { }
+                    )
+                }
             }
 
             item {
@@ -517,6 +542,24 @@ fun AddEditScreen(
                 )
             }
 
+            if (type.isSecret) {
+                item {
+                    SettingsRow(
+                        title = "Burn after reading",
+                        supporting = if (burnAfterRead) "Destroyed on first reveal or copy" else "Keep in vault until deleted",
+                        leading = {
+                            Icon(
+                                Icons.Rounded.Delete,
+                                contentDescription = null,
+                                tint = if (burnAfterRead) colors.accent else colors.textSecondary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        },
+                        onClick = { burnAfterRead = !burnAfterRead }
+                    )
+                }
+            }
+
             item {
                 ErrorLine(error)
                 Spacer(Modifier.height(6.dp))
@@ -548,7 +591,12 @@ fun AddEditScreen(
                                 environment = environment,
                                 expiresAt = expiresAt,
                                 favorite = favorite,
-                                updatedAt = System.currentTimeMillis()
+                                updatedAt = System.currentTimeMillis(),
+                                contextKind = contextKind,
+                                projectScope = projectScope.takeIf { it.isNotBlank() },
+                                fileNameHint = fileNameHint.takeIf { it.isNotBlank() },
+                                isTemplate = isTemplate,
+                                burnAfterRead = burnAfterRead
                             )
                             onSave(entry, secret.takeIf { it.isNotBlank() }, extras.filterValues { it.isNotBlank() })
                         }

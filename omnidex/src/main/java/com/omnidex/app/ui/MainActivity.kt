@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,11 +60,17 @@ import com.omnidex.app.ui.biometric.BiometricGate
 import com.omnidex.app.ui.components.BottomPillNav
 import com.omnidex.app.ui.components.NavItem
 import com.omnidex.app.ui.screens.AddEditScreen
+import com.omnidex.app.ui.screens.CanaryEventScreen
 import com.omnidex.app.ui.screens.CategoriesScreen
+import com.omnidex.app.ui.screens.CompositeDetailScreen
 import com.omnidex.app.ui.screens.EntryDetailScreen
 import com.omnidex.app.ui.screens.ExportScreen
+import com.omnidex.app.ui.screens.HealthReportScreen
+import com.omnidex.app.ui.screens.HistoryScreen
 import com.omnidex.app.ui.screens.ImportScreen
+import com.omnidex.app.ui.screens.MeshScreen
 import com.omnidex.app.ui.screens.SettingsScreen
+import com.omnidex.app.ui.screens.TransferScreen
 import com.omnidex.app.ui.screens.VaultScreen
 import com.omnidex.app.ui.theme.OmniDexTheme
 import com.omnidex.app.ui.viewmodels.VaultViewModel
@@ -192,7 +199,17 @@ class MainActivity : FragmentActivity() {
         val entries by viewModel.entries.collectAsStateWithLifecycle()
 
         fun copyEntry(entry: VaultEntry) {
-            viewModel.copyText(entry.id, viewModel.decrypt(entry.secret), entry.title)
+            if (entry.burnAfterRead && entry.isConsumed) {
+                toast("This secret was consumed")
+                return
+            }
+            val toCopy = if (entry.burnAfterRead && !entry.isConsumed) {
+                val consumed = viewModel.consumeOnce(entry.id)
+                viewModel.decrypt(consumed?.secret ?: entry.secret)
+            } else {
+                viewModel.decrypt(entry.secret)
+            }
+            viewModel.copyText(entry.id, toCopy, entry.title)
             toast(if (settings.clipboardClear) "Copied · clears in 45s" else "Copied")
         }
 
@@ -245,7 +262,7 @@ class MainActivity : FragmentActivity() {
                         items = navItems,
                         selectedKey = when (screen) {
                             is Screen.Categories -> "categories"
-                            is Screen.Settings, is Screen.Export, is Screen.Import -> "settings"
+                            is Screen.Settings, is Screen.Export, is Screen.Import, Screen.Health -> "settings"
                             else -> "vault"
                         },
                         onSelect = { item ->
@@ -259,6 +276,9 @@ class MainActivity : FragmentActivity() {
                     )
                 }
 
+                val projectionEntries by viewModel.projectionEntries.collectAsState()
+                var showSessionSheet by remember { mutableStateOf(false) }
+
                 when (val current = screen) {
                     Screen.Vault -> VaultScreen(
                         entries = entries,
@@ -271,7 +291,17 @@ class MainActivity : FragmentActivity() {
                             toast("Deleted ${entry.title}")
                         },
                         initialQuery = vaultQuery,
-                        bottomBar = bottomBar
+                        bottomBar = bottomBar,
+                        projectionEntries = projectionEntries,
+                        onRefreshProjection = { viewModel.refreshProjection(this@MainActivity) },
+                        onDismissProjection = { viewModel.dismissProjection() },
+                        onOpenProjection = { entry -> screen = Screen.Detail(entry.id) },
+                        showSessionSheet = showSessionSheet,
+                        onShowSessionSheet = { showSessionSheet = it },
+                        onStartSession = { scope, ttl, ids, target ->
+                            val err = viewModel.startSession(scope, ttl, ids, target)
+                            if (err != null) toast(err) else toast("Session started")
+                        }
                     )
 
                     Screen.Categories -> CategoriesScreen(
@@ -317,6 +347,10 @@ class MainActivity : FragmentActivity() {
                         },
                         onTestBiometrics = { promptBiometric(settings, force = true) },
                         onRepairBiometrics = { toast(viewModel.repairBiometric()) },
+                        onOpenHealth = { screen = Screen.Health },
+                        onOpenMesh = { screen = Screen.Mesh },
+                        onOpenTransfer = { screen = Screen.Transfer },
+                        onOpenCanary = { screen = Screen.CanaryEvents },
                         bottomBar = bottomBar
                     )
 
@@ -401,6 +435,44 @@ class MainActivity : FragmentActivity() {
                             else viewModel.importFromJson(decrypted)
                         }
                     )
+
+                    Screen.Health -> HealthReportScreen(
+                        entries = entries,
+                        onBack = { screen = Screen.Settings },
+                        onEntryClick = { entry -> screen = Screen.Detail(entry.id) }
+                    )
+
+                    Screen.Mesh -> MeshScreen(
+                        entries = entries,
+                        onBack = { screen = Screen.Vault },
+                        onEntryClick = { id -> screen = Screen.Detail(id) }
+                    )
+
+                    Screen.Transfer -> TransferScreen(
+                        onBack = { screen = Screen.Settings }
+                    )
+
+                    Screen.CanaryEvents -> CanaryEventScreen(
+                        onBack = { screen = Screen.Settings }
+                    )
+
+                    is Screen.History -> HistoryScreen(
+                        entry = entries.firstOrNull { it.id == current.entryId },
+                        onBack = { screen = Screen.Vault },
+                        onRollback = { _ -> }
+                    )
+
+                    is Screen.Composite -> CompositeDetailScreen(
+                        entry = entries.firstOrNull { it.id == current.entryId },
+                        onBack = { screen = Screen.Vault },
+                        onGenerate = { }
+                    )
+
+                    Screen.Policy -> HealthReportScreen(
+                        entries = entries,
+                        onBack = { screen = Screen.Settings },
+                        onEntryClick = { entry -> screen = Screen.Detail(entry.id) }
+                    )
                 }
 
                 webUrl?.let { url ->
@@ -473,6 +545,13 @@ sealed interface Screen {
     data object Settings : Screen
     data object Export : Screen
     data object Import : Screen
+    data object Health : Screen
+    data object Mesh : Screen
+    data object Policy : Screen
+    data object Transfer : Screen
+    data class History(val entryId: Long) : Screen
+    data class Composite(val entryId: Long) : Screen
+    data object CanaryEvents : Screen
     data class Add(val brandId: String?) : Screen
     data class Detail(val id: Long) : Screen
     data class Edit(val id: Long) : Screen

@@ -35,7 +35,35 @@ data class AppSettings(
     val clipboardClear: Boolean = true,
     val allowScreenshots: Boolean = false,
     val knownTags: List<String> = emptyList(),
-    val compactRows: Boolean = false
+    val compactRows: Boolean = false,
+    // Context-Aware Vault Projection (CAVP)
+    val contextProjectionEnabled: Boolean = false,
+    val contextProjectionMaxCount: Int = 5,
+    // Ephemeral Session Tokens (EST)
+    val sessionInjectionEnabled: Boolean = false,
+    val sessionMaxTtlMinutes: Int = 1440,
+    val sessionMaxEntries: Int = 10,
+    val sessionMaxConcurrent: Int = 3,
+    // Zero-Trust Credential Linting (ZTCL)
+    val credentialLintEnabled: Boolean = true,
+    val credentialLintDeepScanProviders: Set<String> = emptySet(),
+    val dismissedLintFlags: Set<String> = emptySet(),
+    val lastLintRunAt: Long = 0L,
+    // Credential Mesh
+    val credentialMeshEnabled: Boolean = false,
+    // Policy-Gated Access
+    val policyEngineEnabled: Boolean = true,
+    val policyDefaultDenyForProduction: Boolean = false,
+    // Air-Gapped Sync
+    val airGapSyncEnabled: Boolean = true,
+    // Credential Time-Machine
+    val timeMachineEnabled: Boolean = true,
+    val timeMachineMaxHistory: Int = 50,
+    // Synthetic Composer
+    val composerEnabled: Boolean = true,
+    // Canary Network
+    val canaryEnabled: Boolean = true,
+    val canaryShowCount: Boolean = false
 ) {
     val isDarkPreferred: Boolean get() = themeMode == "dark"
 }

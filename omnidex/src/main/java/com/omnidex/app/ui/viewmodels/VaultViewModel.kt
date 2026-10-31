@@ -11,9 +11,17 @@ import com.omnidex.app.data.AppSettings
 import com.omnidex.app.data.SecurePrefs
 import com.omnidex.app.data.SettingsRepository
 import com.omnidex.app.data.VaultRepository
+import com.omnidex.app.domain.CanaryAccessVector
+import com.omnidex.app.domain.HistoryAction
+import com.omnidex.app.domain.HistoryPoint
+import com.omnidex.app.domain.SessionToken
 import com.omnidex.app.domain.VaultEntry
+import com.omnidex.app.security.AccessPolicyEngine
 import com.omnidex.app.security.AuditLogger
+import com.omnidex.app.security.CanaryLogger
+import com.omnidex.app.security.ContextProjectionEngine
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -25,6 +33,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class VaultViewModel(app: Application) : AndroidViewModel(app) {
@@ -48,6 +57,14 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
     val entries: StateFlow<List<VaultEntry>> = repository
         .flatMapLatest { repo -> repo?.entries ?: flowOf(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    // Context-Aware Vault Projection
+    private val _projectionEntries = MutableStateFlow<List<VaultEntry>>(emptyList())
+    val projectionEntries: StateFlow<List<VaultEntry>> = _projectionEntries.asStateFlow()
+
+    // Ephemeral Session Tokens
+    private val _activeSessions = MutableStateFlow<List<SessionToken>>(emptyList())
+    val activeSessions: StateFlow<List<SessionToken>> = _activeSessions.asStateFlow()
 
     init {
         // A process restart clears the session; make sure the state agrees.
@@ -164,11 +181,30 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun repo(): VaultRepository? = Session.repository
 
-    fun decrypt(value: String): String = repo()?.decryptValue(value) ?: ""
+    fun decrypt(value: String, entryId: Long? = null): String {
+        if (entryId != null) {
+            val entry = entryById(entryId)
+            if (entry != null) {
+                val policyDecision = AccessPolicyEngine.evaluate(entry, appContext, settingsRepo.current)
+                if (!policyDecision.allow) {
+                    AuditLogger.log(appContext, "policy_denied", "${entry.title}: ${policyDecision.reason}")
+                    return ""
+                }
+                if (entry.isCanary && settingsRepo.current.canaryEnabled) {
+                    CanaryLogger.log(CanaryAccessVector.DECRYPT, entry.id, mapOf("title" to entry.title), appContext)
+                }
+            }
+        }
+        return repo()?.decryptValue(value) ?: ""
+    }
 
     fun encrypt(value: String): String = repo()?.encryptValue(value) ?: ""
 
     fun entryById(id: Long): VaultEntry? = repo()?.getById(id)
+
+    fun consumeOnce(id: Long): VaultEntry? = repo()?.consumeOnce(id)
+
+    fun getDerivedFor(parentId: Long): List<VaultEntry> = repo()?.getDerivedFor(parentId) ?: emptyList()
 
     /** Decrypts the provider-specific extra fields for an entry. */
     fun extrasOf(entry: VaultEntry): Map<String, String> {
@@ -193,7 +229,29 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
             extras.isEmpty() -> ""
             else -> r.encryptValue(json.encodeToString(extras))
         }
-        val saved = r.upsert(entry.copy(secret = secretBlob, extrasBlob = extrasBlob))
+        var entryToSave = entry.copy(secret = secretBlob, extrasBlob = extrasBlob)
+        
+        // Time-Machine: snapshot history
+        if (settingsRepo.current.timeMachineEnabled) {
+            val existing = if (entry.id != 0L) r.getById(entry.id) else null
+            if (existing != null) {
+                if (existing.secret != secretBlob || existing.extrasBlob != extrasBlob) {
+                    val snapshot = HistoryPoint(
+                        timestamp = System.currentTimeMillis(),
+                        secretBlob = existing.secret,
+                        extrasBlob = existing.extrasBlob,
+                        label = null,
+                        action = HistoryAction.UPDATE
+                    )
+                    val newHistory = (listOf(snapshot) + existing.history).take(settingsRepo.current.timeMachineMaxHistory)
+                    entryToSave = entryToSave.copy(history = newHistory)
+                }
+            } else if (entry.id == 0L) {
+                entryToSave = entryToSave.copy(history = listOf(HistoryPoint(action = HistoryAction.CREATE)))
+            }
+        }
+        
+        val saved = r.upsert(entryToSave)
         AuditLogger.log(appContext, if (entry.id == 0L) "entry_created" else "entry_updated", saved.title)
         // Remember tag vocabulary so future entries can reuse it in one tap.
         if (saved.tags.isNotEmpty()) {
@@ -224,7 +282,18 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun copyText(id: Long, plaintext: String, label: String) {
-        val resolved = if (plaintext.isBlank()) decrypt(entryById(id)?.secret.orEmpty()) else plaintext
+        val entry = entryById(id)
+        if (entry != null) {
+            val policyDecision = AccessPolicyEngine.evaluate(entry, appContext, settingsRepo.current)
+            if (!policyDecision.allow) {
+                AuditLogger.log(appContext, "policy_denied", "${entry.title}: ${policyDecision.reason}")
+                return
+            }
+            if (entry.isCanary && settingsRepo.current.canaryEnabled) {
+                CanaryLogger.log(CanaryAccessVector.UI_COPY, entry.id, mapOf("title" to entry.title), appContext)
+            }
+        }
+        val resolved = if (plaintext.isBlank()) decrypt(entry?.secret.orEmpty(), id) else plaintext
         com.omnidex.app.security.ClipboardGuard.copy(
             context = appContext,
             label = label,
@@ -234,7 +303,17 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
         recordCopy(id)
     }
 
-    fun exportAll(): String = repo()?.exportJson() ?: "[]"
+    fun exportAll(): String {
+        val data = repo()?.exportJson() ?: "[]"
+        if (settingsRepo.current.canaryEnabled) {
+            val entries = repo()?.all ?: emptyList()
+            val canaries = entries.count { it.isCanary }
+            if (canaries > 0) {
+                CanaryLogger.log(CanaryAccessVector.EXPORT, 0, mapOf("count" to canaries.toString()), appContext)
+            }
+        }
+        return data
+    }
 
     fun importJson(entries: List<VaultEntry>) {
         repo()?.replaceAll(entries)
@@ -247,8 +326,152 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
             kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
                 .decodeFromString<List<VaultEntry>>(vaultJson)
         }.getOrElse { return "That payload is not a valid vault" }
+        if (settingsRepo.current.canaryEnabled) {
+            val canaries = decoded.count { it.isCanary }
+            if (canaries > 0) {
+                CanaryLogger.log(CanaryAccessVector.IMPORT, 0, mapOf("count" to canaries.toString()), appContext)
+            }
+        }
         r.replaceAll(decoded)
         AuditLogger.log(appContext, "import", "${decoded.size} entries")
         return null
+    }
+
+    // Context Projection
+    fun refreshProjection(context: android.content.Context) {
+        val s = settingsRepo.current
+        if (!s.contextProjectionEnabled) {
+            _projectionEntries.value = emptyList()
+            return
+        }
+        if (_lockState.value != LockState.UNLOCKED) {
+            _projectionEntries.value = emptyList()
+            return
+        }
+        val foreground = ContextProjectionEngine.getForegroundPackage(context)
+        val mimes = ContextProjectionEngine.getClipboardMimeTypes(context)
+        val scored = ContextProjectionEngine.scoreEntries(entries.value, foreground, mimes)
+        val top = scored.take(s.contextProjectionMaxCount.coerceIn(1, 5)).map { it.first }
+        _projectionEntries.value = top
+    }
+
+    fun dismissProjection() {
+        _projectionEntries.value = emptyList()
+    }
+
+    // Ephemeral Sessions
+    fun startSession(scopeLabel: String, ttlMinutes: Int, entryIds: List<Long>, targetPackage: String?): String? {
+        val s = settingsRepo.current
+        if (!s.sessionInjectionEnabled) return "Session injection disabled"
+        if (_lockState.value != LockState.UNLOCKED) return "Vault locked"
+        if (entryIds.size > s.sessionMaxEntries) return "Too many entries (max ${s.sessionMaxEntries})"
+        if (ttlMinutes > s.sessionMaxTtlMinutes) return "TTL too long (max ${s.sessionMaxTtlMinutes} min)"
+        if (_activeSessions.value.size >= s.sessionMaxConcurrent) return "Too many concurrent sessions"
+        val masterKey = Session.masterKey ?: return "No session key"
+        
+        // Check for canaries
+        if (s.canaryEnabled) {
+            val r = repo()
+            val canaries = entryIds.mapNotNull { r?.getById(it) }.count { it.isCanary }
+            if (canaries > 0) {
+                CanaryLogger.log(CanaryAccessVector.SESSION_INJECTION, 0, mapOf("count" to canaries.toString()), appContext)
+            }
+        }
+        
+        val ttlMs = TimeUnit.MINUTES.toMillis(ttlMinutes.toLong())
+        val expiresAt = System.currentTimeMillis() + ttlMs
+        val minuteBucket = TimeUnit.MILLISECONDS.toMinutes(System.currentTimeMillis())
+        val sessionKey = CryptoManager.deriveSessionKey(masterKey, scopeLabel, minuteBucket)
+        
+        val token = SessionToken(
+            scopeLabel = scopeLabel,
+            targetPackage = targetPackage,
+            entryIds = entryIds,
+            expiresAt = expiresAt,
+            sessionKey = sessionKey
+        )
+        _activeSessions.value = _activeSessions.value + token
+        AuditLogger.log(appContext, "session_started", scopeLabel)
+        
+        viewModelScope.launch {
+            delay(ttlMs)
+            endSession(token.id)
+        }
+        return null
+    }
+
+    fun endSession(sessionId: String) {
+        val sessions = _activeSessions.value
+        val session = sessions.find { it.id == sessionId }
+        session?.wipe()
+        _activeSessions.value = sessions.filter { it.id != sessionId }
+        AuditLogger.log(appContext, "session_ended", session?.scopeLabel ?: sessionId)
+    }
+
+    fun injectSession(sessionId: String) {
+        val session = _activeSessions.value.find { it.id == sessionId } ?: return
+        if (session.isExpired()) {
+            endSession(sessionId)
+            return
+        }
+        val r = repo() ?: return
+        session.entryIds.forEach { id ->
+            val entry = r.getById(id) ?: return@forEach
+            val policyDecision = AccessPolicyEngine.evaluate(entry, appContext, settingsRepo.current)
+            if (!policyDecision.allow) {
+                AuditLogger.log(appContext, "policy_denied", "${entry.title}: ${policyDecision.reason}")
+                return@forEach
+            }
+            if (entry.isCanary && settingsRepo.current.canaryEnabled) {
+                CanaryLogger.log(CanaryAccessVector.SESSION_INJECTION, entry.id, mapOf("title" to entry.title), appContext)
+            }
+            val decrypted = decrypt(entry.secret, id)
+            if (decrypted.isNotBlank()) {
+                com.omnidex.app.security.ClipboardGuard.copy(
+                    context = appContext,
+                    label = "Session:${session.scopeLabel}:${entry.title}",
+                    value = decrypted,
+                    clearAfterMs = 5000L
+                )
+            }
+        }
+        AuditLogger.log(appContext, "session_injected", session.scopeLabel)
+    }
+    
+    // Time-Machine
+    fun rollbackToHistory(entryId: Long, historyPoint: HistoryPoint): Boolean {
+        if (!settingsRepo.current.timeMachineEnabled) return false
+        val r = repo() ?: return false
+        val entry = r.getById(entryId) ?: return false
+        val rolledBack = entry.copy(
+            secret = historyPoint.secretBlob,
+            extrasBlob = historyPoint.extrasBlob,
+            history = (listOf(HistoryPoint(
+                timestamp = System.currentTimeMillis(),
+                secretBlob = entry.secret,
+                extrasBlob = entry.extrasBlob,
+                label = "Rollback from ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date())}",
+                action = HistoryAction.ROLLBACK
+            )) + entry.history).take(settingsRepo.current.timeMachineMaxHistory)
+        )
+        r.upsert(rolledBack)
+        AuditLogger.log(appContext, "history_rollback", entry.title)
+        return true
+    }
+    
+    // Canary
+    fun createCanary(type: com.omnidex.app.domain.EntryType, label: String): VaultEntry? {
+        if (!settingsRepo.current.canaryEnabled) return null
+        val canary = com.omnidex.app.security.CanaryFactory.generate(type, label)
+        return saveEntry(canary, canary.secret)
+    }
+    
+    // Policy
+    fun evaluatePolicy(entry: VaultEntry): AccessPolicyEngine.AccessDecision {
+        return AccessPolicyEngine.evaluate(entry, appContext, settingsRepo.current)
+    }
+    
+    fun clearPolicyCache() {
+        AccessPolicyEngine.clearCache()
     }
 }

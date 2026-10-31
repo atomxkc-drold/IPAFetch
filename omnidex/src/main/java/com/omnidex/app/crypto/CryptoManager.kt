@@ -3,6 +3,7 @@ package com.omnidex.app.crypto
 import java.security.SecureRandom
 import java.util.Base64
 import javax.crypto.Cipher
+import javax.crypto.Mac
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
@@ -78,5 +79,42 @@ object CryptoManager {
             sb.append(alphabet[SecureRandom().nextInt(alphabet.length)])
         }
         return sb.toString()
+    }
+
+    /**
+     * HKDF-SHA256 to derive a session key from master key.
+     * Uses minute bucket for forward secrecy.
+     */
+    fun deriveSessionKey(masterKey: ByteArray, scopeLabel: String, minuteBucket: Long): ByteArray {
+        val salt = ("devstash-session:$scopeLabel").toByteArray()
+        val info = "hkdf-session-v1:$scopeLabel:$minuteBucket".toByteArray()
+        // HKDF extract
+        val macExtract = Mac.getInstance("HmacSHA256")
+        macExtract.init(SecretKeySpec(salt, "HmacSHA256"))
+        val prk = macExtract.doFinal(masterKey)
+        // HKDF expand
+        val macExpand = Mac.getInstance("HmacSHA256")
+        macExpand.init(SecretKeySpec(prk, "HmacSHA256"))
+        val t1 = macExpand.doFinal(info + byteArrayOf(0x01))
+        return t1.copyOf(32)
+    }
+
+    fun encryptWithKey(plaintext: String, key: ByteArray): String {
+        val iv = SecureRandom().generateSeed(GCM_IV_LENGTH)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(GCM_TAG_LENGTH, iv))
+        val ciphertext = cipher.doFinal(plaintext.toByteArray(charset("UTF-8")))
+        val blob = iv + ciphertext
+        return Base64.getEncoder().encodeToString(blob)
+    }
+
+    fun decryptWithKey(blobB64: String, key: ByteArray): String {
+        val blob = Base64.getDecoder().decode(blobB64)
+        val iv = blob.copyOfRange(0, GCM_IV_LENGTH)
+        val ciphertext = blob.copyOfRange(GCM_IV_LENGTH, blob.size)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(GCM_TAG_LENGTH, iv))
+        val plaintext = cipher.doFinal(ciphertext)
+        return String(plaintext, charset("UTF-8"))
     }
 }

@@ -185,7 +185,9 @@ data class AppColors(
     val glassBottom: Color,
     val glassBorder: Color,
     val glassRow: Color,
-    val glassSheen: Color
+    val glassSheen: Color,
+    val error: Color = Color(0xFFEF4444),
+    val warning: Color = Color(0xFFF59E0B)
 ) {
     companion object {
         fun of(
@@ -225,7 +227,9 @@ data class AppColors(
                 glassBottom = scheme.surface.copy(alpha = if (dark) 0.58f else 0.62f),
                 glassBorder = scheme.onSurface.copy(alpha = if (dark) 0.14f else 0.10f),
                 glassRow = row.copy(alpha = if (dark) 0.74f else 0.66f),
-                glassSheen = if (dark) Color.White.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.28f)
+                glassSheen = if (dark) Color.White.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.28f),
+                error = if (dark) Color(0xFFF87171) else Color(0xFFDC2626),
+                warning = if (dark) Color(0xFFFBBF24) else Color(0xFFD97706)
             )
         }
     }

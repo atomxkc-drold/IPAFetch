@@ -39,8 +39,17 @@ import androidx.compose.material.icons.rounded.SettingsBrightness
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Style
 import androidx.compose.material.icons.rounded.TextFields
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Upload
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.Widgets
+import androidx.compose.material.icons.rounded.AccountTree
+import androidx.compose.material.icons.rounded.Policy
+import androidx.compose.material.icons.rounded.SyncAlt
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Build
+import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -86,6 +95,7 @@ private const val APPEARANCE = "appearance"
 private const val INTERACTION = "interaction"
 private const val SECURITY = "security"
 private const val DATA = "data"
+private const val INTELLIGENCE = "intelligence"
 
 @Composable
 fun SettingsScreen(
@@ -99,6 +109,10 @@ fun SettingsScreen(
     onResetAppearance: () -> Unit,
     onTestBiometrics: () -> Unit,
     onRepairBiometrics: () -> Unit,
+    onOpenHealth: () -> Unit = {},
+    onOpenMesh: () -> Unit = {},
+    onOpenTransfer: () -> Unit = {},
+    onOpenCanary: () -> Unit = {},
     bottomBar: @Composable () -> Unit
 ) {
     val colors = OmniDexTheme.colors
@@ -109,10 +123,11 @@ fun SettingsScreen(
             APPEARANCE to true,
             INTERACTION to true,
             SECURITY to false,
+            INTELLIGENCE to false,
             DATA to false
         )
     }
-    val allOpen = expanded.values.all { it }
+    val allOpen = listOf(THEMES, APPEARANCE, INTERACTION, SECURITY, INTELLIGENCE, DATA).all { expanded[it] == true }
 
     AppBackground(Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize()) {
@@ -132,7 +147,7 @@ fun SettingsScreen(
                             contentDescription = if (allOpen) "Collapse all" else "Expand all",
                             onClick = {
                                 val target = !allOpen
-                                listOf(THEMES, APPEARANCE, INTERACTION, SECURITY, DATA).forEach {
+                                listOf(THEMES, APPEARANCE, INTERACTION, SECURITY, INTELLIGENCE, DATA).forEach {
                                     expanded[it] = target
                                 }
                             },
@@ -503,6 +518,141 @@ fun SettingsScreen(
                                 )
                             },
                             onClick = onRepairBiometrics
+                        )
+                        SettingsRow(
+                            title = "Policy-Gated Access",
+                            supporting = "Time/context-based access rules",
+                            leading = { Icon(Icons.Rounded.Policy, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
+                            trailing = {
+                                ExpressiveSwitch(
+                                    checked = settings.policyEngineEnabled,
+                                    onCheckedChange = { value -> onUpdate { it.copy(policyEngineEnabled = value) } }
+                                )
+                            }
+                        )
+                        SettingsRow(
+                            title = "Air-Gapped Transfer",
+                            supporting = "QR/NFC credential transfer",
+                            leading = { Icon(Icons.Rounded.SyncAlt, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
+                            trailing = {
+                                ExpressiveSwitch(
+                                    checked = settings.airGapSyncEnabled,
+                                    onCheckedChange = { value -> onUpdate { it.copy(airGapSyncEnabled = value) } }
+                                )
+                            }
+                        )
+                        SettingsRow(
+                            title = "Open Transfer",
+                            supporting = "Send/receive credentials",
+                            leading = { Icon(Icons.Rounded.SyncAlt, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
+                            onClick = onOpenTransfer
+                        )
+                        SettingsRow(
+                            title = "Canary Tripwires",
+                            supporting = "Synthetic honeypot credentials",
+                            leading = { Icon(Icons.Rounded.BugReport, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
+                            trailing = {
+                                ExpressiveSwitch(
+                                    checked = settings.canaryEnabled,
+                                    onCheckedChange = { value -> onUpdate { it.copy(canaryEnabled = value) } }
+                                )
+                            }
+                        )
+                        SettingsRow(
+                            title = "Canary Events",
+                            supporting = "View tripwire alerts",
+                            leading = { Icon(Icons.Rounded.Warning, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
+                            onClick = onOpenCanary
+                        )
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    // ------------------------------------------- Intelligence
+                    SectionHeader(
+                        icon = Icons.Rounded.AutoAwesome,
+                        title = "Intelligence",
+                        expanded = expanded[INTELLIGENCE] == true,
+                        onToggle = { expanded[INTELLIGENCE] = !(expanded[INTELLIGENCE] ?: true) }
+                    )
+                    SettingsGroup(expanded[INTELLIGENCE] == true) {
+                        SettingsRow(
+                            title = "Context Projection",
+                            supporting = "Proactively surface relevant entries based on app/context",
+                            leading = { Icon(Icons.Rounded.Visibility, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
+                            trailing = {
+                                ExpressiveSwitch(
+                                    checked = settings.contextProjectionEnabled,
+                                    onCheckedChange = { value -> onUpdate { it.copy(contextProjectionEnabled = value) } }
+                                )
+                            }
+                        )
+                        SettingsRow(
+                            title = "Ephemeral Sessions",
+                            supporting = "Time-limited credential injection for CI/debug",
+                            leading = { Icon(Icons.Rounded.Timer, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
+                            trailing = {
+                                ExpressiveSwitch(
+                                    checked = settings.sessionInjectionEnabled,
+                                    onCheckedChange = { value -> onUpdate { it.copy(sessionInjectionEnabled = value) } }
+                                )
+                            }
+                        )
+                        SettingsRow(
+                            title = "Credential Health",
+                            supporting = "On-device linting for weak/stale credentials",
+                            leading = { Icon(Icons.Rounded.Warning, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
+                            trailing = {
+                                ExpressiveSwitch(
+                                    checked = settings.credentialLintEnabled,
+                                    onCheckedChange = { value -> onUpdate { it.copy(credentialLintEnabled = value) } }
+                                )
+                            }
+                        )
+                        SettingsRow(
+                            title = "View Health Report",
+                            supporting = "See all lint findings",
+                            leading = { Icon(Icons.Rounded.Shield, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
+                            onClick = onOpenHealth
+                        )
+                        SettingsRow(
+                            title = "Credential Mesh",
+                            supporting = "Visual dependency graph of credentials",
+                            leading = { Icon(Icons.Rounded.AccountTree, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
+                            trailing = {
+                                ExpressiveSwitch(
+                                    checked = settings.credentialMeshEnabled,
+                                    onCheckedChange = { value -> onUpdate { it.copy(credentialMeshEnabled = value) } }
+                                )
+                            }
+                        )
+                        SettingsRow(
+                            title = "Open Credential Mesh",
+                            supporting = "View dependency graph",
+                            leading = { Icon(Icons.Rounded.AccountTree, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
+                            onClick = onOpenMesh
+                        )
+                        SettingsRow(
+                            title = "Credential Time-Machine",
+                            supporting = "History, diffs & rotation rehearsal",
+                            leading = { Icon(Icons.Rounded.History, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
+                            trailing = {
+                                ExpressiveSwitch(
+                                    checked = settings.timeMachineEnabled,
+                                    onCheckedChange = { value -> onUpdate { it.copy(timeMachineEnabled = value) } }
+                                )
+                            }
+                        )
+                        SettingsRow(
+                            title = "Synthetic Composer",
+                            supporting = "Generate composite artifacts",
+                            leading = { Icon(Icons.Rounded.Build, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
+                            trailing = {
+                                ExpressiveSwitch(
+                                    checked = settings.composerEnabled,
+                                    onCheckedChange = { value -> onUpdate { it.copy(composerEnabled = value) } }
+                                )
+                            }
                         )
                     }
 

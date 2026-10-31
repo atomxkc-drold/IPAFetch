@@ -3,6 +3,40 @@ package com.omnidex.app.domain
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+enum class Severity { INFO, WARNING, CRITICAL }
+
+enum class MeshEdgeType { USED_TOGETHER, DERIVES_FROM, ROTATES_WITH, SAME_CATEGORY }
+
+enum class AccessPolicyType { TIME_WINDOW, REQUIRE_BIOMETRIC, REQUIRE_CHARGING, DENY_IF_ROOTED, DENY_IF_SCREEN_CAPTURE }
+
+enum class CanaryAccessVector { UI_COPY, EXPORT, SESSION_INJECTION, DECRYPT, IMPORT }
+
+enum class HistoryAction { CREATE, UPDATE, ROLLBACK }
+
+@Serializable
+data class LintFlag(
+    val ruleId: String = "",
+    val severity: Severity = Severity.INFO,
+    val message: String = "",
+    val remediation: String? = null
+)
+
+@Serializable
+data class HistoryPoint(
+    val timestamp: Long = System.currentTimeMillis(),
+    val secretBlob: String = "",
+    val extrasBlob: String = "",
+    val label: String? = null,
+    val action: HistoryAction = HistoryAction.UPDATE
+)
+
+@Serializable
+data class AccessPolicy(
+    val type: AccessPolicyType = AccessPolicyType.TIME_WINDOW,
+    val enabled: Boolean = true,
+    val params: Map<String, String> = emptyMap()
+)
+
 /** How a value behaves in the UI: masked, plain, link, command, etc. */
 enum class ValueKind { SECRET, TEXT, URL, COMMAND, CONNECTION, COLOR, NUMBER }
 
@@ -24,15 +58,20 @@ enum class EntryType(
     ADB("adb", "ADB", "adb shell command for an app", ValueKind.COMMAND),
     SSH("ssh", "SSH", "Host, port and optional key", ValueKind.CONNECTION),
     COLOR("color", "Color", "Hex colour value", ValueKind.COLOR),
-    NUMBER("number", "Number", "Numeric value with a unit", ValueKind.NUMBER);
+    NUMBER("number", "Number", "Numeric value with a unit", ValueKind.NUMBER),
+    COMPOSITE("composite", "Composite", "Generated artifact from multiple secrets", ValueKind.COMMAND);
 
     val isSecret: Boolean get() = kind == ValueKind.SECRET
 
     companion object {
-        fun from(key: String?): EntryType = entries.firstOrNull { it.key == key } ?: TOKEN
+        fun from(key: String?): EntryType {
+            if (key.isNullOrBlank()) return TOKEN
+            return values().firstOrNull { it.key == key || it.label == key } ?: TOKEN
+        }
         val editorOrder = listOf(
             TOKEN, API, SECRET, JSON, TEXT, NOTE,
-            LINK, MODULE, ADB, SSH, COLOR, NUMBER
+            LINK, MODULE, ADB, SSH, COLOR, NUMBER, COMPOSITE,
+            CONTEXT, PROMPT, SKILL, COMMAND
         )
     }
 }
@@ -79,10 +118,40 @@ data class VaultEntry(
     val updatedAt: Long = System.currentTimeMillis(),
     val lastCopiedAt: Long? = null,
     val copyCount: Int = 0,
-    val extrasBlob: String = ""
+    val extrasBlob: String = "",
+    // AI Context Vault
+    val contextKind: String? = null,
+    val projectScope: String? = null,
+    val fileNameHint: String? = null,
+    val isTemplate: Boolean = false,
+    // Burn-after-read
+    val burnAfterRead: Boolean = false,
+    val consumedAt: Long? = null,
+    val consumedByAction: String? = null,
+    // Scoped derived tokens
+    val derivedFromId: Long? = null,
+    val derivationKind: String? = null,
+    val derivationMeta: String? = null,
+    // Zero-Trust Credential Linting
+    val lintFlags: List<LintFlag> = emptyList(),
+    // Credential Time-Machine
+    val history: List<HistoryPoint> = emptyList(),
+    // Canary Credential Network
+    val isCanary: Boolean = false,
+    // Policy-Gated Access
+    val policy: List<AccessPolicy> = emptyList()
 ) {
     @kotlinx.serialization.Transient
     val typeValue: EntryType = EntryType.from(type)
+
+    @kotlinx.serialization.Transient
+    val isDerived: Boolean get() = derivedFromId != null && derivedFromId != 0L
+
+    @kotlinx.serialization.Transient
+    val isContext: Boolean get() = typeValue == EntryType.CONTEXT || typeValue == EntryType.PROMPT || typeValue == EntryType.SKILL || typeValue == EntryType.COMMAND
+
+    @kotlinx.serialization.Transient
+    val isConsumed: Boolean get() = burnAfterRead && consumedAt != null
 
     fun matches(query: String): Boolean {
         if (query.isBlank()) return true
@@ -95,7 +164,10 @@ data class VaultEntry(
             usage.lowercase().contains(q) ||
             tags.any { it.lowercase().contains(q) } ||
             usedBy.lowercase().contains(q) ||
-            usedByApps.any { it.lowercase().contains(q) }
+            usedByApps.any { it.lowercase().contains(q) } ||
+            (contextKind?.lowercase()?.contains(q) == true) ||
+            (projectScope?.lowercase()?.contains(q) == true) ||
+            (fileNameHint?.lowercase()?.contains(q) == true)
     }
 
     fun isExpired(now: Long = System.currentTimeMillis()): Boolean =

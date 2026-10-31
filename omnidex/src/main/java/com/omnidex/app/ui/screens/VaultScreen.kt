@@ -34,6 +34,13 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Terminal
+import androidx.compose.material.icons.rounded.Code
+import androidx.compose.material.icons.rounded.LocalFireDepartment
+import androidx.compose.material.icons.rounded.CallSplit
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -64,12 +71,19 @@ import com.omnidex.app.ui.components.SearchPill
 import com.omnidex.app.ui.components.RoundIconButton
 import com.omnidex.app.ui.components.ScreenHeader
 import com.omnidex.app.ui.components.TagPill
+import com.omnidex.app.ui.components.ProjectionBar
+import com.omnidex.app.ui.components.SessionSheet
+import com.omnidex.app.ui.components.PrimaryButton
 import com.omnidex.app.ui.theme.OmniDexTheme
 import com.omnidex.app.ui.theme.FavoriteGold
 import com.omnidex.app.ui.theme.rowShape
 import kotlin.math.roundToInt
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
 
 private const val FILTER_ALL = "All"
+private const val FILTER_CONTEXT = "Context"
+private const val FILTER_SESSION = "Session"
 
 @Composable
 fun VaultScreen(
@@ -80,13 +94,32 @@ fun VaultScreen(
     onCopy: (VaultEntry) -> Unit,
     onDelete: (VaultEntry) -> Unit,
     initialQuery: String = "",
-    bottomBar: @Composable () -> Unit
+    bottomBar: @Composable () -> Unit,
+    projectionEntries: List<VaultEntry> = emptyList(),
+    onRefreshProjection: () -> Unit = {},
+    onDismissProjection: () -> Unit = {},
+    onOpenProjection: (VaultEntry) -> Unit = {},
+    showSessionSheet: Boolean = false,
+    onShowSessionSheet: (Boolean) -> Unit = {},
+    onStartSession: (String, Int, List<Long>, String?) -> Unit = { _, _, _, _ -> }
 ) {
+    val context = LocalContext.current
     var query by remember(initialQuery) { mutableStateOf(initialQuery) }
     var filter by remember { mutableStateOf(FILTER_ALL) }
+    
+    LaunchedEffect(entries.size, filter) {
+        onRefreshProjection()
+    }
 
     val filtered = entries
-        .filter { filter == FILTER_ALL || it.type == EntryType.from(filter).key }
+        .filter {
+            when (filter) {
+                FILTER_ALL -> true
+                FILTER_CONTEXT -> it.isContext
+                FILTER_SESSION -> false
+                else -> it.type == EntryType.from(filter).key
+            }
+        }
         .filter {
             it.matches(query) ||
                 (query.isNotBlank() && BrandCatalog.by(it.brandId)?.name?.contains(query, ignoreCase = true) == true)
@@ -141,14 +174,40 @@ fun VaultScreen(
                     SearchPill(value = query, onValueChange = { query = it })
                     Spacer(Modifier.height(12.dp))
                     ChipRow(
-                        options = listOf(FILTER_ALL) + EntryType.editorOrder.map { it.label },
+                        options = listOf(FILTER_ALL, FILTER_CONTEXT, FILTER_SESSION) + EntryType.editorOrder.filterNot { it.isContext }.map { it.label },
                         selected = filter,
                         label = { it },
                         onSelect = { filter = it }
                     )
                 }
             }
-            if (filtered.isEmpty()) {
+            if (filter == FILTER_SESSION) {
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            "Ephemeral Sessions",
+                            color = colors.textPrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            "Start time-limited credential injection",
+                            color = colors.textSecondary,
+                            fontSize = 12.sp
+                        )
+                        PrimaryButton(
+                            text = "New Session",
+                            onClick = { onShowSessionSheet(true) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            } else if (filtered.isEmpty()) {
                 item {
                     EmptyState(
                         icon = Icons.Rounded.Key,
@@ -191,12 +250,34 @@ fun VaultScreen(
                 )
             }
         }
+        if (projectionEntries.isNotEmpty() && settings.contextProjectionEnabled) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 90.dp)
+            ) {
+                ProjectionBar(
+                    entries = projectionEntries,
+                    onCopy = { onCopy(it) },
+                    onOpen = { onOpenEntry(it.id) },
+                    onDismiss = onDismissProjection
+                )
+            }
+        }
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .then(widthModifier)
                 .padding(bottom = 18.dp)
         ) { bottomBar() }
+    }
+    
+    if (showSessionSheet) {
+        SessionSheet(
+            entries = entries,
+            onDismiss = { onShowSessionSheet(false) },
+            onStartSession = onStartSession
+        )
     }
 }
 
@@ -281,12 +362,61 @@ private fun EntryRow(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )
+                    if (entry.lintFlags.isNotEmpty()) {
+                        val maxSeverity = entry.lintFlags.maxByOrNull { 
+                            when (it.severity) { 
+                                Severity.CRITICAL -> 2 
+                                Severity.WARNING -> 1 
+                                Severity.INFO -> 0 
+                            }
+                        }?.severity
+                        val lintColor = when (maxSeverity) {
+                            Severity.CRITICAL -> colors.error
+                            Severity.WARNING -> colors.warning
+                            Severity.INFO -> colors.accent
+                            else -> colors.accent
+                        }
+                        Spacer(Modifier.width(6.dp))
+                        Icon(
+                            imageVector = Icons.Rounded.Warning,
+                            contentDescription = "Issues",
+                            tint = lintColor,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                     if (entry.favorite) {
                         Spacer(Modifier.width(6.dp))
                         Icon(
                             Icons.Rounded.Star,
                             contentDescription = null,
                             tint = FavoriteGold,
+                            modifier = Modifier.size(13.dp)
+                        )
+                    }
+                    if (entry.isContext) {
+                        Spacer(Modifier.width(6.dp))
+                        Icon(
+                            Icons.Rounded.AutoAwesome,
+                            contentDescription = null,
+                            tint = colors.accent,
+                            modifier = Modifier.size(13.dp)
+                        )
+                    }
+                    if (entry.isDerived) {
+                        Spacer(Modifier.width(6.dp))
+                        Icon(
+                            Icons.Rounded.CallSplit,
+                            contentDescription = null,
+                            tint = colors.textSecondary,
+                            modifier = Modifier.size(13.dp)
+                        )
+                    }
+                    if (entry.burnAfterRead) {
+                        Spacer(Modifier.width(6.dp))
+                        Icon(
+                            Icons.Rounded.LocalFireDepartment,
+                            contentDescription = null,
+                            tint = if (entry.isConsumed) colors.textTertiary else colors.accent,
                             modifier = Modifier.size(13.dp)
                         )
                     }
@@ -304,14 +434,19 @@ private fun EntryRow(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            if (entry.isExpired()) {
+            if (entry.isConsumed) {
+                TagPill("Consumed", color = colors.textTertiary.copy(alpha = 0.18f))
+                Spacer(Modifier.width(6.dp))
+            } else if (entry.isExpired()) {
                 TagPill("Expired", color = colors.accent.copy(alpha = 0.18f))
                 Spacer(Modifier.width(6.dp))
             } else if (entry.expiresSoon()) {
                 TagPill("Expiring", color = colors.accent.copy(alpha = 0.14f))
                 Spacer(Modifier.width(6.dp))
             }
-            CopyButton(onClick = onCopy, tint = brandTint)
+            if (!entry.isConsumed) {
+                CopyButton(onClick = onCopy, tint = brandTint)
+            }
         }
     }
 }

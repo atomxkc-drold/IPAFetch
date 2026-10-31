@@ -103,6 +103,23 @@ class VaultRepository(
         )
     }
 
+    fun consumeOnce(id: Long): VaultEntry? {
+        val entry = getById(id) ?: return null
+        if (!entry.burnAfterRead || entry.isConsumed) return entry
+        val tombstone = encryptValue("__DEVSTASH_BURNED__")
+        val consumed = entry.copy(
+            secret = tombstone,
+            consumedAt = System.currentTimeMillis(),
+            consumedByAction = "reveal_or_copy",
+            updatedAt = System.currentTimeMillis()
+        )
+        persist(_entries.value.map { if (it.id == id) consumed else it })
+        return consumed
+    }
+
+    fun getDerivedFor(parentId: Long): List<VaultEntry> =
+        _entries.value.filter { it.derivedFromId == parentId }
+
     fun replaceAll(entries: List<VaultEntry>) {
         persist(entries)
     }
