@@ -67,6 +67,10 @@ enum class EntryType(
 
     val isSecret: Boolean get() = kind == ValueKind.SECRET
 
+    /** AI context material: files, prompts, skills and runnable commands. */
+    val isContext: Boolean
+        get() = this == CONTEXT || this == PROMPT || this == SKILL || this == COMMAND
+
     companion object {
         fun from(key: String?): EntryType {
             if (key.isNullOrBlank()) return TOKEN
@@ -153,7 +157,7 @@ data class VaultEntry(
     val isDerived: Boolean get() = derivedFromId != null && derivedFromId != 0L
 
     @kotlinx.serialization.Transient
-    val isContext: Boolean get() = typeValue == EntryType.CONTEXT || typeValue == EntryType.PROMPT || typeValue == EntryType.SKILL || typeValue == EntryType.COMMAND
+    val isContext: Boolean get() = typeValue.isContext
 
     @kotlinx.serialization.Transient
     val isConsumed: Boolean get() = burnAfterRead && consumedAt != null
