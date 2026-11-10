@@ -56,13 +56,13 @@ fun TransferScreen(
         )
         
         PrimaryButton(
-            text = "Send Credentials",
+            label = "Send Credentials",
             onClick = { },
             modifier = Modifier.fillMaxWidth()
         )
         
         PrimaryButton(
-            text = "Receive Credentials",
+            label = "Receive Credentials",
             onClick = { },
             modifier = Modifier.fillMaxWidth()
         )

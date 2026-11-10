@@ -189,6 +189,9 @@ data class AppColors(
     val error: Color = Color(0xFFEF4444),
     val warning: Color = Color(0xFFF59E0B)
 ) {
+    /** Third-level text: quieter than [textSecondary], still legible on [row]. */
+    val textTertiary: Color get() = textSecondary.copy(alpha = 0.72f)
+
     companion object {
         fun of(
             scheme: ColorScheme,

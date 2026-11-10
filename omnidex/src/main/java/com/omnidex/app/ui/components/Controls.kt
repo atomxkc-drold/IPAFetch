@@ -345,17 +345,26 @@ fun TrailingValue(text: String) {
     )
 }
 
-/** Rounded tag used on entry rows and detail. */
+/** Rounded tag used on entry rows and detail. Pass [selected] and [onClick] to make it a filter chip. */
 @Composable
-fun TagPill(text: String, modifier: Modifier = Modifier, color: Color = OmniDexTheme.colors.accentSoft) {
+fun TagPill(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = OmniDexTheme.colors.accentSoft,
+    selected: Boolean? = null,
+    onClick: (() -> Unit)? = null
+) {
     val colors = OmniDexTheme.colors
+    val background = if (selected == true) colors.accent else color
+    val content = if (selected == true) colors.onAccent else colors.textPrimary
     Box(
         modifier = modifier
             .clip(CircleShape)
-            .background(color)
+            .background(background)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
-        Text(text, color = colors.textPrimary, fontSize = 11.sp, maxLines = 1)
+        Text(text, color = content, fontSize = 11.sp, maxLines = 1)
     }
 }
 

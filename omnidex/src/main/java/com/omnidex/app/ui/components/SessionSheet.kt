@@ -174,7 +174,7 @@ fun SessionSheet(
             Spacer(Modifier.height(16.dp))
             
             PrimaryButton(
-                text = "Start Session",
+                label = "Start Session",
                 onClick = {
                     if (selectedEntryIds.isNotEmpty()) {
                         onStartSession(scopeLabel, ttlMinutes, selectedEntryIds.toList(), selectedTarget)

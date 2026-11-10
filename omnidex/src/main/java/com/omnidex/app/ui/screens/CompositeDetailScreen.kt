@@ -72,13 +72,13 @@ fun CompositeDetailScreen(
         )
         
         PrimaryButton(
-            text = "Generate & Copy",
+            label = "Generate & Copy",
             onClick = onGenerate,
             modifier = Modifier.fillMaxWidth()
         )
         
         PrimaryButton(
-            text = "Share",
+            label = "Share",
             onClick = { },
             modifier = Modifier.fillMaxWidth()
         )

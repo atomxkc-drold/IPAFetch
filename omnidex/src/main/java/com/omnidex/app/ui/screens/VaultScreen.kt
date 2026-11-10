@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.omnidex.app.data.SwipeAction
 import com.omnidex.app.domain.EntryType
+import com.omnidex.app.domain.Severity
 import com.omnidex.app.domain.VaultEntry
 import com.omnidex.app.ui.brand.BrandCatalog
 import com.omnidex.app.ui.components.AppBackground
@@ -201,7 +202,7 @@ fun VaultScreen(
                             fontSize = 12.sp
                         )
                         PrimaryButton(
-                            text = "New Session",
+                            label = "New Session",
                             onClick = { onShowSessionSheet(true) },
                             modifier = Modifier.fillMaxWidth()
                         )

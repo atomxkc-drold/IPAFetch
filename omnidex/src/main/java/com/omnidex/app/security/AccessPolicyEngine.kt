@@ -82,7 +82,7 @@ object AccessPolicyEngine {
                     }
                 }
                 AccessPolicyType.DENY_IF_ROOTED -> {
-                    if (RootDetector.isRooted()) {
+                    if (RootDetector.isRooted(context)) {
                         decisions.add(false)
                         reasons.add("Access denied on rooted device")
                         actions.add(RequiredAction.UNROOT_DEVICE)

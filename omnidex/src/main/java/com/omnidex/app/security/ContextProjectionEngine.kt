@@ -31,7 +31,7 @@ object ContextProjectionEngine {
         return try {
             val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val desc = cm.primaryClipDescription ?: return emptyList()
-            desc.mimeTypes?.toList() ?: emptyList()
+            (0 until desc.mimeTypeCount).mapNotNull { desc.getMimeType(it) }
         } catch (e: Exception) {
             emptyList()
         }
