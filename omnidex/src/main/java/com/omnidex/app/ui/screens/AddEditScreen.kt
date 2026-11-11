@@ -144,6 +144,12 @@ fun AddEditScreen(
     val brands = remember(query) { BrandCatalog.search(query).take(24) }
     val profile = remember(brandId, category) { ServiceProfiles.of(brandId, category) }
     val variants = profile.variants
+    // Only offer the entry kinds this service actually issues.
+    val typeOptions = remember(brandId, category, existing?.type) {
+        val allowed = ServiceProfiles.typesFor(brandId, category)
+        val current = EntryType.from(existing?.type)
+        if (current in allowed) allowed else (allowed + current).distinct()
+    }
     val extraFields = remember(profile, variant) { profile.fieldsFor(variant) }
     val isNew = existing == null
 
@@ -183,7 +189,7 @@ fun AddEditScreen(
 
             item {
                 TypePillRow(
-                    options = EntryType.editorOrder,
+                    options = typeOptions,
                     selected = type,
                     onSelect = { type = it }
                 )
@@ -278,6 +284,8 @@ fun AddEditScreen(
                                         if (category == EntryCategories.OTHER) category = brand.category
                                         val nextVariants = ServiceProfiles.of(brand.id, brand.category).variants
                                         variant = nextVariants.firstOrNull() ?: ""
+                                        val allowed = ServiceProfiles.typesFor(brand.id, brand.category)
+                                        if (type !in allowed) type = allowed.firstOrNull() ?: EntryType.API
                                         pickerOpen = false
                                     }
                                 )

@@ -292,4 +292,39 @@ object ServiceProfiles {
 
     /** Providers with a bespoke profile rather than the category default. */
     fun isTailored(brandId: String): Boolean = byBrand.containsKey(brandId)
+
+    /**
+     * Entry types that make sense for a provider. Keeps the new-entry type
+     * pills matched to the service instead of offering every kind at once.
+     * A blank provider means the user has not picked one yet, so everything
+     * stays available.
+     */
+    fun typesFor(brandId: String, category: String = EntryCategories.OTHER): List<EntryType> {
+        if (brandId.isBlank()) return EntryType.editorOrder
+        return when (category) {
+            EntryCategories.AI,
+            EntryCategories.MUSIC,
+            EntryCategories.PAYMENTS -> listOf(
+                EntryType.TOKEN, EntryType.API, EntryType.SECRET
+            )
+
+            EntryCategories.CLOUD,
+            EntryCategories.DATA -> listOf(
+                EntryType.API, EntryType.SECRET, EntryType.JSON, EntryType.LINK
+            )
+
+            EntryCategories.DEV -> listOf(
+                EntryType.TOKEN, EntryType.SECRET, EntryType.SSH, EntryType.JSON, EntryType.LINK
+            )
+
+            EntryCategories.COMMS,
+            EntryCategories.DESIGN -> listOf(
+                EntryType.TOKEN, EntryType.API, EntryType.SECRET, EntryType.LINK
+            )
+
+            else -> listOf(
+                EntryType.TOKEN, EntryType.API, EntryType.SECRET, EntryType.NOTE, EntryType.LINK
+            )
+        }
+    }
 }

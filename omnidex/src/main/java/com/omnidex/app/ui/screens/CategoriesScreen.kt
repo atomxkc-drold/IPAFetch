@@ -46,6 +46,7 @@ import com.omnidex.app.domain.VaultEntry
 import com.omnidex.app.ui.brand.BrandCatalog
 import com.omnidex.app.ui.components.AppBackground
 import com.omnidex.app.ui.components.BrandTile
+import com.omnidex.app.ui.components.ChipRow
 import com.omnidex.app.ui.components.ScreenHeader
 import com.omnidex.app.ui.theme.OmniDexTheme
 import com.omnidex.app.ui.theme.rowShape
@@ -75,6 +76,17 @@ fun CategoriesScreen(
                     )
                     Spacer(Modifier.height(6.dp))
                 }
+                item {
+                    // Swipeable shortcut row: tap a group to jump into the vault.
+                    ChipRow(
+                        options = listOf("All") + EntryCategories.ALL,
+                        selected = "",
+                        label = { it },
+                        onSelect = { if (it != "All") onOpenCategory(it) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
                 items(EntryCategories.ALL) { category ->
                     val count = byCategory[category]?.size ?: 0
                     CategoryCard(
@@ -94,7 +106,7 @@ fun CategoriesScreen(
                         modifier = Modifier.padding(start = 6.dp, bottom = 8.dp)
                     )
                 }
-                items(BrandCatalog.ALL) { brand ->
+                items(BrandCatalog.credentialBrands) { brand ->
                     val brandCount = entries.count { it.brandId == brand.id }
                     BrandRow(
                         name = brand.name,

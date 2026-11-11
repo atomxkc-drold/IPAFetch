@@ -444,6 +444,7 @@ fun SettingsScreen(
                     SettingsGroup(expanded[SECURITY] == true) {
                         SettingsRow(
                             title = "Biometric unlock",
+                            help = "Uses the phone fingerprint or face to unwrap the vault key instead of typing the password.",
                             supporting = "Keeps the master key inside the Keystore",
                             leading = { Icon(Icons.Rounded.Fingerprint, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
                             trailing = {
@@ -521,6 +522,7 @@ fun SettingsScreen(
                         )
                         SettingsRow(
                             title = "Policy-Gated Access",
+                            help = "Blocks opening an entry unless a condition holds, such as time window, charging or not-rooted.",
                             supporting = "Time/context-based access rules",
                             leading = { Icon(Icons.Rounded.Policy, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
                             trailing = {
@@ -532,6 +534,7 @@ fun SettingsScreen(
                         )
                         SettingsRow(
                             title = "Air-Gapped Transfer",
+                            help = "Moves entries between devices over QR codes, with no network involved.",
                             supporting = "QR/NFC credential transfer",
                             leading = { Icon(Icons.Rounded.SyncAlt, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
                             trailing = {
@@ -550,6 +553,7 @@ fun SettingsScreen(
                         SettingsRow(
                             title = "Canary Tripwires",
                             supporting = "Synthetic honeypot credentials",
+                            help = "Creates fake keys. If one is ever copied, exported or used, OmniDex records an alert, which means something leaked.",
                             leading = { Icon(Icons.Rounded.BugReport, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
                             trailing = {
                                 ExpressiveSwitch(
@@ -579,6 +583,7 @@ fun SettingsScreen(
                         SettingsRow(
                             title = "Context Projection",
                             supporting = "Proactively surface relevant entries based on app/context",
+                            help = "Looks at which app is in the foreground and offers the credentials that app probably needs. Stays on-device and never leaves the vault.",
                             leading = { Icon(Icons.Rounded.Visibility, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
                             trailing = {
                                 ExpressiveSwitch(
@@ -590,6 +595,7 @@ fun SettingsScreen(
                         SettingsRow(
                             title = "Ephemeral Sessions",
                             supporting = "Time-limited credential injection for CI/debug",
+                            help = "Hands out short-lived copies of a secret with an expiry time, so a terminal or CI job never holds the long-lived key.",
                             leading = { Icon(Icons.Rounded.Timer, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
                             trailing = {
                                 ExpressiveSwitch(
@@ -601,6 +607,7 @@ fun SettingsScreen(
                         SettingsRow(
                             title = "Credential Health",
                             supporting = "On-device linting for weak/stale credentials",
+                            help = "Checks each entry for short values, old keys and missing expiry. The check runs locally and nothing is uploaded.",
                             leading = { Icon(Icons.Rounded.Warning, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
                             trailing = {
                                 ExpressiveSwitch(
@@ -618,6 +625,7 @@ fun SettingsScreen(
                         SettingsRow(
                             title = "Credential Mesh",
                             supporting = "Visual dependency graph of credentials",
+                            help = "Draws which keys are used by the same app or service, so you can see what breaks if you rotate one.",
                             leading = { Icon(Icons.Rounded.AccountTree, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
                             trailing = {
                                 ExpressiveSwitch(
@@ -635,6 +643,7 @@ fun SettingsScreen(
                         SettingsRow(
                             title = "Credential Time-Machine",
                             supporting = "History, diffs & rotation rehearsal",
+                            help = "Keeps encrypted past versions of an entry so you can compare, roll back or rehearse a rotation.",
                             leading = { Icon(Icons.Rounded.History, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
                             trailing = {
                                 ExpressiveSwitch(
@@ -646,6 +655,7 @@ fun SettingsScreen(
                         SettingsRow(
                             title = "Synthetic Composer",
                             supporting = "Generate composite artifacts",
+                            help = "Combines several entries into one artifact, such as a config block or an .env line, using a template you pick.",
                             leading = { Icon(Icons.Rounded.Build, null, tint = colors.accent, modifier = Modifier.size(20.dp)) },
                             trailing = {
                                 ExpressiveSwitch(

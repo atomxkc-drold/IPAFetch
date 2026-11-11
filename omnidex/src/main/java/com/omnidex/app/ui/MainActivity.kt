@@ -12,8 +12,16 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -35,12 +43,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -189,7 +199,35 @@ class MainActivity : FragmentActivity() {
         onRequestBiometric: () -> Unit,
         onOpenExternal: (String) -> Unit
     ) {
-        var screen by remember { mutableStateOf<Screen>(Screen.Vault) }
+        // Back stack: every push keeps the page underneath, so a back gesture
+        // always returns to where the user came from instead of resetting.
+        val backStack = remember { mutableStateListOf<Screen>(Screen.Vault) }
+        val screen = backStack.last()
+        var goingBack by remember { mutableStateOf(false) }
+
+        fun navigate(to: Screen) {
+            if (to == screen) return
+            goingBack = false
+            backStack.add(to)
+        }
+
+        fun resetTo(to: Screen, animateBack: Boolean = false) {
+            goingBack = animateBack
+            backStack.clear()
+            backStack.add(to)
+        }
+
+        fun goBack(): Boolean {
+            if (backStack.size <= 1) return false
+            goingBack = true
+            backStack.removeAt(backStack.lastIndex)
+            return true
+        }
+
+        /** Back to the previous page, falling back to [fallback] on a fresh stack. */
+        fun backTo(fallback: Screen) {
+            if (!goBack()) resetTo(fallback, animateBack = true)
+        }
         var webUrl by remember { mutableStateOf<String?>(null) }
         var vaultQuery by remember { mutableStateOf("") }
         var confirmReset by remember { mutableStateOf(false) }
@@ -217,13 +255,13 @@ class MainActivity : FragmentActivity() {
             if (settings.showSourceInApp) webUrl = url else onOpenExternal(url)
         }
 
-        BackHandler(enabled = webUrl != null || screen != Screen.Vault) {
-            if (webUrl != null) webUrl = null else screen = Screen.Vault
+        BackHandler(enabled = webUrl != null || backStack.size > 1) {
+            if (webUrl != null) webUrl = null else goBack()
         }
 
         LaunchedEffect(lockState) {
             if (lockState == VaultViewModel.LockState.LOCKED) {
-                screen = Screen.Vault
+                resetTo(Screen.Vault)
                 webUrl = null
             }
         }
@@ -266,12 +304,12 @@ class MainActivity : FragmentActivity() {
                             else -> "vault"
                         },
                         onSelect = { item ->
-                            screen = when (item.key) {
+                            resetTo(when (item.key) {
                                 "vault" -> Screen.Vault
                                 "add" -> Screen.Add(null)
                                 "categories" -> Screen.Categories
                                 else -> Screen.Settings
-                            }
+                            })
                         }
                     )
                 }
@@ -279,11 +317,51 @@ class MainActivity : FragmentActivity() {
                 val projectionEntries by viewModel.projectionEntries.collectAsState()
                 var showSessionSheet by remember { mutableStateOf(false) }
 
-                when (val current = screen) {
+                val tabs = listOf(Screen.Vault, Screen.Categories, Screen.Settings)
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(screen) {
+                            // A sideways swipe anywhere that is not already a
+                            // horizontal scroller flips between the main tabs.
+                            val threshold = 90.dp.toPx()
+                            var total = 0f
+                            detectHorizontalDragGestures(
+                                onDragStart = { total = 0f },
+                                onHorizontalDrag = { _, delta -> total += delta },
+                                onDragEnd = {
+                                    val index = tabs.indexOfFirst { it == screen }
+                                    if (index >= 0 && kotlin.math.abs(total) > threshold) {
+                                        val next = if (total < 0f) index + 1 else index - 1
+                                        if (next in tabs.indices) {
+                                            resetTo(tabs[next], animateBack = next < index)
+                                        }
+                                    }
+                                    total = 0f
+                                },
+                                onDragCancel = { total = 0f }
+                            )
+                        }
+                ) {
+                AnimatedContent(
+                    targetState = screen,
+                    modifier = Modifier.fillMaxSize(),
+                    transitionSpec = {
+                        // Push slides in from the right, back slides the other way.
+                        val direction = if (goingBack) -1 else 1
+                        (slideInHorizontally(tween(260)) { width -> width * direction } +
+                            fadeIn(tween(180))) togetherWith
+                            (slideOutHorizontally(tween(260)) { width -> -width * direction / 3 } +
+                                fadeOut(tween(180)))
+                    },
+                    label = "screen"
+                ) { current ->
+                when (current) {
                     Screen.Vault -> VaultScreen(
                         entries = entries,
-                        onOpenEntry = { screen = Screen.Detail(it) },
-                        onAdd = { screen = Screen.Add(null) },
+                        onOpenEntry = { navigate(Screen.Detail(it)) },
+                        onAdd = { navigate(Screen.Add(null)) },
                         onToggleFavorite = viewModel::toggleFavorite,
                         onCopy = { entry -> copyEntry(entry) },
                         onDelete = { entry ->
@@ -295,7 +373,7 @@ class MainActivity : FragmentActivity() {
                         projectionEntries = projectionEntries,
                         onRefreshProjection = { viewModel.refreshProjection(this@MainActivity) },
                         onDismissProjection = { viewModel.dismissProjection() },
-                        onOpenProjection = { entry -> screen = Screen.Detail(entry.id) },
+                        onOpenProjection = { entry -> navigate(Screen.Detail(entry.id)) },
                         showSessionSheet = showSessionSheet,
                         onShowSessionSheet = { showSessionSheet = it },
                         onStartSession = { scope, ttl, ids, target ->
@@ -308,11 +386,11 @@ class MainActivity : FragmentActivity() {
                         entries = entries,
                         onOpenCategory = { category ->
                             vaultQuery = category
-                            screen = Screen.Vault
+                            resetTo(Screen.Vault, animateBack = true)
                         },
                         onOpenProvider = { name ->
                             vaultQuery = name
-                            screen = Screen.Vault
+                            resetTo(Screen.Vault, animateBack = true)
                         },
                         bottomBar = bottomBar
                     )
@@ -321,8 +399,8 @@ class MainActivity : FragmentActivity() {
                         settings = settings,
                         entryCount = entries.size,
                         onUpdate = viewModel::updateSettings,
-                        onExport = { screen = Screen.Export },
-                        onImport = { screen = Screen.Import },
+                        onExport = { navigate(Screen.Export) },
+                        onImport = { navigate(Screen.Import) },
                         onReset = { confirmReset = true },
                         onClearTags = {
                             viewModel.updateSettings { it.copy(knownTags = emptyList()) }
@@ -347,10 +425,10 @@ class MainActivity : FragmentActivity() {
                         },
                         onTestBiometrics = { promptBiometric(settings, force = true) },
                         onRepairBiometrics = { toast(viewModel.repairBiometric()) },
-                        onOpenHealth = { screen = Screen.Health },
-                        onOpenMesh = { screen = Screen.Mesh },
-                        onOpenTransfer = { screen = Screen.Transfer },
-                        onOpenCanary = { screen = Screen.CanaryEvents },
+                        onOpenHealth = { navigate(Screen.Health) },
+                        onOpenMesh = { navigate(Screen.Mesh) },
+                        onOpenTransfer = { navigate(Screen.Transfer) },
+                        onOpenCanary = { navigate(Screen.CanaryEvents) },
                         bottomBar = bottomBar
                     )
 
@@ -360,30 +438,30 @@ class MainActivity : FragmentActivity() {
                         knownTags = settings.knownTags,
                         onSave = { entry, secret, extras ->
                             viewModel.saveEntry(entry, secret, extras)
-                            screen = Screen.Vault
+                            resetTo(Screen.Vault, animateBack = true)
                             toast("Saved to vault")
                         },
-                        onCancel = { screen = Screen.Vault }
+                        onCancel = { backTo(Screen.Vault) }
                     )
 
                     is Screen.Edit -> {
                         val entry = entries.firstOrNull { it.id == current.id }
                         if (entry == null) {
-                            LaunchedEffect(current.id) { screen = Screen.Vault }
+                            LaunchedEffect(current.id) { resetTo(Screen.Vault, animateBack = true) }
                         } else {
                             AddEditScreen(
                                 existing = entry,
                                 knownTags = settings.knownTags,
                                 existingExtras = remember(entry.id) { viewModel.extrasOf(entry) },
                                 onSave = { updated, secret, extras ->
-                                    val saved = viewModel.saveEntry(updated, secret, extras)
-                                    screen = saved?.let { Screen.Detail(it.id) } ?: Screen.Vault
+                                    viewModel.saveEntry(updated, secret, extras)
+                                    if (!goBack()) resetTo(Screen.Detail(updated.id), animateBack = true)
                                     toast("Changes saved")
                                 },
-                                onCancel = { screen = Screen.Detail(entry.id) },
+                                onCancel = { backTo(Screen.Detail(entry.id)) },
                                 onDelete = {
                                     viewModel.deleteEntry(entry.id)
-                                    screen = Screen.Vault
+                                    backTo(Screen.Vault)
                                     toast("Deleted")
                                 }
                             )
@@ -393,18 +471,18 @@ class MainActivity : FragmentActivity() {
                     is Screen.Detail -> {
                         val entry = entries.firstOrNull { it.id == current.id }
                         if (entry == null) {
-                            LaunchedEffect(current.id) { screen = Screen.Vault }
+                            LaunchedEffect(current.id) { resetTo(Screen.Vault, animateBack = true) }
                         } else {
                             EntryDetailScreen(
                                 entry = entry,
                                 secretPlain = { viewModel.decrypt(entry.secret) },
-                                onBack = { screen = Screen.Vault },
-                                onEdit = { screen = Screen.Edit(entry.id) },
+                                onBack = { backTo(Screen.Vault) },
+                                onEdit = { navigate(Screen.Edit(entry.id)) },
                                 onCopy = { copyEntry(entry) },
                                 onToggleFavorite = { viewModel.toggleFavorite(entry.id) },
                                 onDelete = {
                                     viewModel.deleteEntry(entry.id)
-                                    screen = Screen.Vault
+                                    backTo(Screen.Vault)
                                     toast("Deleted")
                                 },
                                 onRegenerate = {
@@ -424,11 +502,11 @@ class MainActivity : FragmentActivity() {
 
                     Screen.Export -> {
                         val vaultJson = remember { viewModel.exportAll() }
-                        ExportScreen(vaultJson = vaultJson, onBack = { screen = Screen.Settings })
+                        ExportScreen(vaultJson = vaultJson, onBack = { backTo(Screen.Settings) })
                     }
 
                     Screen.Import -> ImportScreen(
-                        onBack = { screen = Screen.Settings },
+                        onBack = { backTo(Screen.Settings) },
                         onImport = { payload, passphrase ->
                             val decrypted = ExportManager.import(payload.trim(), passphrase)
                             if (decrypted == null) "Wrong passphrase or damaged payload"
@@ -438,45 +516,47 @@ class MainActivity : FragmentActivity() {
 
                     Screen.Health -> HealthReportScreen(
                         entries = entries,
-                        onBack = { screen = Screen.Settings },
-                        onEntryClick = { entry -> screen = Screen.Detail(entry.id) }
+                        onBack = { backTo(Screen.Settings) },
+                        onEntryClick = { entry -> navigate(Screen.Detail(entry.id)) }
                     )
 
                     Screen.Mesh -> MeshScreen(
                         entries = entries,
-                        onBack = { screen = Screen.Vault },
-                        onEntryClick = { id -> screen = Screen.Detail(id) }
+                        onBack = { backTo(Screen.Vault) },
+                        onEntryClick = { id -> navigate(Screen.Detail(id)) }
                     )
 
                     Screen.Transfer -> TransferScreen(
-                        onBack = { screen = Screen.Settings }
+                        onBack = { backTo(Screen.Settings) }
                     )
 
                     Screen.CanaryEvents -> CanaryEventScreen(
-                        onBack = { screen = Screen.Settings }
+                        onBack = { backTo(Screen.Settings) }
                     )
 
                     is Screen.History -> HistoryScreen(
                         entry = entries.firstOrNull { it.id == current.entryId },
-                        onBack = { screen = Screen.Vault },
+                        onBack = { backTo(Screen.Vault) },
                         onRollback = { _ -> }
                     )
 
                     is Screen.Composite -> CompositeDetailScreen(
                         entry = entries.firstOrNull { it.id == current.entryId },
-                        onBack = { screen = Screen.Vault },
+                        onBack = { backTo(Screen.Vault) },
                         onGenerate = { }
                     )
 
                     Screen.Policy -> HealthReportScreen(
                         entries = entries,
-                        onBack = { screen = Screen.Settings },
-                        onEntryClick = { entry -> screen = Screen.Detail(entry.id) }
+                        onBack = { backTo(Screen.Settings) },
+                        onEntryClick = { entry -> navigate(Screen.Detail(entry.id)) }
                     )
+                }
                 }
 
                 webUrl?.let { url ->
                     WebOverlay(url = url, onClose = { webUrl = null })
+                }
                 }
             }
         }
@@ -490,7 +570,7 @@ class MainActivity : FragmentActivity() {
                     TextButton(onClick = {
                         confirmReset = false
                         viewModel.resetVault()
-                        screen = Screen.Vault
+                        resetTo(Screen.Vault)
                     }) { Text("Reset") }
                 },
                 dismissButton = {

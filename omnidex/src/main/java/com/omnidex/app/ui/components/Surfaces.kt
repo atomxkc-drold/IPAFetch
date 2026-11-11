@@ -33,7 +33,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -165,6 +167,8 @@ fun SettingsRow(
     modifier: Modifier = Modifier,
     title: String? = null,
     supporting: String? = null,
+    /** Short plain-language explanation shown behind a "?" button. */
+    help: String? = null,
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable RowScope.() -> Unit)? = null,
     onClick: (() -> Unit)? = null,
@@ -182,6 +186,7 @@ fun SettingsRow(
         nested -> colors.rowInset
         else -> colors.row
     }
+    var helpOpen by remember { mutableStateOf(false) }
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -223,11 +228,43 @@ fun SettingsRow(
                     )
                 }
             }
+            if (help != null) {
+                Box(
+                    modifier = Modifier
+                        .size(26.dp)
+                        .clip(CircleShape)
+                        .background(colors.rowInset)
+                        .clickable { helpOpen = !helpOpen },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "?",
+                        color = if (helpOpen) colors.accent else colors.textSecondary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
             if (trailing != null) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     content = trailing
+                )
+            }
+        }
+        if (help != null) {
+            AnimatedVisibility(
+                visible = helpOpen,
+                enter = expandVertically(tween(180)) + fadeIn(tween(180)),
+                exit = shrinkVertically(tween(160)) + fadeOut(tween(120))
+            ) {
+                Text(
+                    text = help,
+                    color = colors.textSecondary,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    modifier = Modifier.padding(top = 8.dp)
                 )
             }
         }

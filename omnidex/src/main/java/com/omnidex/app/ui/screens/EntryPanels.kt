@@ -72,10 +72,19 @@ fun AppPickerSheet(
     val context = LocalContext.current
     val apps = remember { AppCatalog.installedApps(context) }
     var query by remember { mutableStateOf("") }
-    val filtered = remember(query, apps) {
-        if (query.isBlank()) apps
-        else apps.filter { it.label.contains(query, true) || it.packageName.contains(query, true) }
+    // User apps are the useful default; system apps are opt-in.
+    var showSystem by remember { mutableStateOf(false) }
+    val filtered = remember(query, apps, showSystem) {
+        apps.asSequence()
+            .filter { showSystem || !it.isSystem }
+            .filter {
+                query.isBlank() ||
+                    it.label.contains(query, true) ||
+                    it.packageName.contains(query, true)
+            }
+            .toList()
     }
+    val userCount = remember(apps) { apps.count { !it.isSystem } }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
@@ -103,6 +112,37 @@ fun AppPickerSheet(
                 minHeight = 48
             )
             Spacer(Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                TagPill(
+                    text = "Show system apps",
+                    selected = showSystem,
+                    onClick = { showSystem = !showSystem }
+                )
+                Text(
+                    if (showSystem) "${apps.size} apps" else "$userCount user apps",
+                    color = colors.textSecondary,
+                    fontSize = 11.sp,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            if (filtered.isEmpty()) {
+                Text(
+                    text = if (query.isBlank() && !showSystem) {
+                        "No user apps installed. Turn on “Show system apps” to see system ones."
+                    } else {
+                        "No app matches “$query”."
+                    },
+                    color = colors.textSecondary,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp
+                )
+                Spacer(Modifier.height(10.dp))
+            }
             LazyColumn(
                 modifier = Modifier.heightIn(max = 380.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -127,7 +167,11 @@ fun AppPickerSheet(
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(app.label, color = colors.textPrimary, fontSize = 14.sp)
-                            Text(app.packageName, color = colors.textSecondary, fontSize = 10.sp)
+                            Text(
+                                if (app.isSystem) "${app.packageName} · system" else app.packageName,
+                                color = colors.textSecondary,
+                                fontSize = 10.sp
+                            )
                         }
                         if (isSelected) {
                             Icon(

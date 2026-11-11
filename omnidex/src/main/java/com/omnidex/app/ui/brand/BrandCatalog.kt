@@ -154,9 +154,9 @@ object BrandCatalog {
     fun forCategory(category: String): List<Brand> = ALL.filter { it.category == category }
 
     fun search(query: String): List<Brand> {
-        if (query.isBlank()) return ALL
+        if (query.isBlank()) return credentialBrands
         val q = query.trim().lowercase()
-        return ALL.filter {
+        return credentialBrands.filter {
             it.name.lowercase().contains(q) ||
                 it.id.contains(q) ||
                 it.category.lowercase().contains(q) ||
@@ -165,6 +165,18 @@ object BrandCatalog {
     }
 
     val categories: List<String> = ALL.map { it.category }.distinct()
+
+    /**
+     * Providers that do not hand out an API key or token. Their console link
+     * is a docs or account page, so there is nothing to paste into the vault.
+     * They are left out of the provider picker and the vault provider list.
+     */
+    val noCredential: Set<String> = setOf("bandcamp", "applemusic")
+
+    /** Providers that actually issue a credential you can store. */
+    val credentialBrands: List<Brand> = ALL.filterNot { it.id in noCredential }
+
+    fun issuesCredentials(brandId: String): Boolean = brandId !in noCredential
 
     fun consoleFor(brandId: String): String? = by(brandId)?.consoleUrl?.takeIf { it.isNotBlank() }
 }
