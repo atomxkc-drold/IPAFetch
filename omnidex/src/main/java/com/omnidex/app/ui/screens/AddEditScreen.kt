@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Code
@@ -66,7 +67,9 @@ import com.omnidex.app.domain.TypeFields
 import com.omnidex.app.domain.VaultEntry
 import com.omnidex.app.ui.brand.Brand
 import com.omnidex.app.ui.brand.BrandCatalog
+import com.omnidex.app.ui.components.AppAutocompleteField
 import com.omnidex.app.ui.components.AppBackground
+import com.omnidex.app.ui.components.AppChoice
 import com.omnidex.app.ui.components.BrandTile
 import com.omnidex.app.ui.components.ChipRow
 import com.omnidex.app.ui.components.DropdownRow
@@ -98,7 +101,6 @@ fun AddEditScreen(
     val colors = OmniDexTheme.colors
     val context = LocalContext.current
     var usedByApps by remember(existing?.id) { mutableStateOf(existing?.usedByApps ?: emptyList()) }
-    var showApps by remember { mutableStateOf(false) }
     var title by remember(existing?.id) { mutableStateOf(existing?.title ?: "") }
     var brandId by remember(existing?.id) { mutableStateOf(existing?.brandId ?: initialBrandId ?: "") }
     var type by remember(existing?.id) { mutableStateOf(EntryType.from(existing?.type)) }
@@ -140,6 +142,15 @@ fun AddEditScreen(
     var showPermissions by remember { mutableStateOf(false) }
     var showDate by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
+
+    // "Used by application": the pill doubles as a search box for installed apps.
+    var usedByQuery by remember(existing?.id) { mutableStateOf("") }
+    var usedByOpen by remember(existing?.id) { mutableStateOf(false) }
+    val appChoices = remember { AppCatalog.installedApps(context).map { AppChoice(it.packageName, it.label) } }
+    val usedByChoices = remember(usedByQuery, appChoices) {
+        if (usedByQuery.isBlank()) appChoices.take(30)
+        else appChoices.filter { it.label.contains(usedByQuery, true) || it.packageName.contains(usedByQuery, true) }.take(30)
+    }
 
     val brands = remember(query) { BrandCatalog.search(query).take(24) }
     val profile = remember(brandId, category) { ServiceProfiles.of(brandId, category) }
@@ -426,11 +437,29 @@ fun AddEditScreen(
             }
 
             item {
-                ExpressiveTextField(
-                    value = usedBy,
-                    onValueChange = { usedBy = it },
-                    label = "Used by application",
-                    placeholder = "e.g. deploy-worker, iOS app, Zapier"
+                AppAutocompleteField(
+                    query = usedByQuery,
+                    onQueryChange = {
+                        usedByQuery = it
+                        usedByOpen = true
+                    },
+                    choices = usedByChoices,
+                    selected = usedByApps,
+                    onToggle = { pkg ->
+                        usedByApps = if (pkg in usedByApps) usedByApps - pkg else usedByApps + pkg
+                    },
+                    expanded = usedByOpen,
+                    pillText = usedBy.ifBlank { "Used by application" },
+                    onPillClick = { usedByOpen = !usedByOpen },
+                    leading = { Icon(Icons.Rounded.PhoneAndroid, contentDescription = null, tint = colors.textSecondary, modifier = Modifier.size(18.dp)) },
+                    trailing = {
+                        Icon(
+                            Icons.Rounded.ArrowDropDown,
+                            contentDescription = null,
+                            tint = colors.textSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 )
             }
 
@@ -637,13 +666,6 @@ fun AddEditScreen(
         }
     }
 
-    if (showApps) {
-        AppPickerSheet(
-            selected = usedByApps,
-            onDismiss = { showApps = false },
-            onChange = { usedByApps = it }
-        )
-    }
     if (showTags) {
         TagsSheet(
             current = tags,

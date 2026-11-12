@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.graphics.drawable.Drawable
 
 /** An app installed on this phone that consumes a stored credential. */
 data class InstalledApp(
@@ -54,4 +55,13 @@ object AppCatalog {
         val pm = context.packageManager
         pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
     }.getOrDefault(packageName.substringAfterLast('.'))
+
+    /**
+     * Real launcher icon for [packageName], or null when it cannot be resolved
+     * (uninstalled package, restricted profile). Callers that show long lists
+     * should cache the result themselves.
+     */
+    fun icon(context: Context, packageName: String): Drawable? = runCatching {
+        context.packageManager.getApplicationIcon(packageName)
+    }.getOrNull()
 }
