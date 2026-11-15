@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches the Compose canvas so the window never flashes another colour. -->
+    <color name="app_canvas">#EFECF4</color>
+</resources>

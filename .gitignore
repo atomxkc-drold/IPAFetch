@@ -1,0 +1,18 @@
+.codegraph/
+.gradle/
+build/
+*.apk
+*.iml
+.DS_Store
+local.properties
+
+# Kotlin serialization generated sources
+**/generated/
+**/kapt/
+
+# IDE
+.idea/
+.harness/
+
+# Dependencies
+node_modules/
