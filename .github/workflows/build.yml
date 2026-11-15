@@ -33,6 +33,9 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', 'gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: gradle-${{ runner.os }}-
 
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
       - name: Unit tests
         run: ./gradlew :omnidex:testDebugUnitTest --stacktrace
 
