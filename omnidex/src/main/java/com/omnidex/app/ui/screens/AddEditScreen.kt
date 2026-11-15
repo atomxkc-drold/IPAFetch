@@ -68,6 +68,7 @@ import com.omnidex.app.domain.VaultEntry
 import com.omnidex.app.ui.brand.Brand
 import com.omnidex.app.ui.brand.BrandCatalog
 import com.omnidex.app.ui.components.AppAutocompleteField
+import com.omnidex.app.ui.components.AppChoice
 import com.omnidex.app.ui.components.AppBackground
 import com.omnidex.app.domain.AppCatalog
 import com.omnidex.app.ui.components.BrandTile
